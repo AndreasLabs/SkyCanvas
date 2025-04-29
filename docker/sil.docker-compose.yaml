@@ -10,3 +10,17 @@ services:
     restart: 'always'
     environment:
     - COUNT=${NUMCOPTERS:-3}
+    
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning
+
+volumes:
+  redis-data:
+    driver: local
