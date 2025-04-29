@@ -21,10 +21,8 @@ uuid = { version = "1.16.0", features = ["v4"] }
 
 crossbeam-channel = "0.5.15"
 mavlink = "0.13.1"
-prost = "0.13.5"
-tonic = "0.13.0"
-tonic-web = "0.13.0"
+
+redis = { version = "0.30.0", features = ["json", "streams", "tokio-comp"] }
 
 
 [build-dependencies]
-tonic-build = "*"

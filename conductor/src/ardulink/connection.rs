@@ -1,8 +1,8 @@
-
 use anyhow::Error;
 use crossbeam_channel::{Receiver, Sender};
 use log::{debug, error, info, trace};
 use mavlink::ardupilotmega::MavMessage;
+use redis::{Commands, PubSub, RedisConnectionInfo};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -10,9 +10,9 @@ use std::{
     },
     time::Duration,
 };
-use tokio::{self, task, time};
+use tokio::{self, sync::Mutex, task, time};
 
-use crate::ardulink::config::ArdulinkConnectionType;
+use crate::{ardulink::config::ArdulinkConnectionType, redis::RedisConnection, state::State};
 
 type MavlinkMessageType = MavMessage;
 
@@ -33,13 +33,15 @@ pub struct ArdulinkConnection {
     should_stop: Arc<AtomicBool>,
     connection_type: ArdulinkConnectionType,
     task_handles: Vec<task::JoinHandle<()>>,
+    redis: Arc<Mutex<RedisConnection>>,
 }
 
 impl ArdulinkConnection {
-    pub fn new(connection_type: ArdulinkConnectionType) -> Result<Self, Error> {
+    pub fn new(connection_type: ArdulinkConnectionType, state: &State) -> Result<Self, Error> {
         let (recv_tx, recv_rx): (Sender<_>, Receiver<_>) = crossbeam_channel::bounded(500);
         let (transmit_tx, transmit_rx): (Sender<_>, Receiver<_>) = crossbeam_channel::bounded(500);
-
+        let redis = RedisConnection::new(state.redis.clone(), "ardulink".to_string());
+        let redis = Arc::new(Mutex::new(redis));
         Ok(Self {
             recv_channels: (recv_tx, recv_rx),
             transmit_channels: (transmit_tx, transmit_rx),
@@ -47,6 +49,7 @@ impl ArdulinkConnection {
             should_stop: Arc::new(AtomicBool::new(false)),
             connection_type,
             task_handles: Vec::new(),
+            redis,
         })
     }
 
@@ -56,7 +59,8 @@ impl ArdulinkConnection {
         let transmit_channels = self.transmit_channels.clone();
         let should_stop = self.should_stop.clone();
         let connection_type = self.connection_type.clone();
-
+        let redis = self.redis.clone();
+        let error_redis = redis.clone();
         let task_handle = task::spawn(async move {
             if let Err(e) = Self::start_task_inner(
                 con_string.clone(),
@@ -64,12 +68,19 @@ impl ArdulinkConnection {
                 transmit_channels,
                 should_stop,
                 connection_type,
+                redis,
             ).await {
                 error!(
                     "ArduLink => Error starting task for connection string: {}",
                     con_string
                 );
                 error!("ArduLink => Error: {e:?}");
+
+                // Send on ardulink/error channel and log channel
+                let mut redis = error_redis.lock().await;
+                let _: () = redis.client.publish("ardulink/message", &e.to_string()).unwrap();
+                let _: () = redis.client.publish("ardulink/state", &"ERROR").unwrap();
+                let _: () = redis.client.publish("log", &format!("ArduLink => Error: {e:?}")).unwrap();
             }
         });
 
@@ -102,6 +113,7 @@ impl ArdulinkConnection {
         transmit_channels: (Sender<MavlinkMessageType>, Receiver<MavlinkMessageType>),
         should_stop: Arc<AtomicBool>,
         _connection_type: ArdulinkConnectionType,
+        redis: Arc<Mutex<RedisConnection>>,
     ) -> Result<(), ArdulinkError> {
         // Make the connection
         info!(
@@ -175,7 +187,7 @@ impl ArdulinkConnection {
 
                     match recv_result {
                         Ok((_header, msg)) => {
-                            if let Err(e) = recv_tx.send(msg) {
+                            if let Err(e) = recv_tx.send(msg.clone()) {
                                 error!(
                                     "ArduLink => Failed to send received message to channel: {:?}",
                                     e
@@ -184,6 +196,11 @@ impl ArdulinkConnection {
                                     break;
                                 }
                             }
+
+                            let msg_json = serde_json::to_string(&msg).unwrap();
+
+                            let mut redis = redis.lock().await;
+                            let _: () = redis.client.publish("ardulink/raw", &msg_json).unwrap();
                         }
                         Err(mavlink::error::MessageReadError::Io(e)) => {
                             if e.kind() == std::io::ErrorKind::WouldBlock {

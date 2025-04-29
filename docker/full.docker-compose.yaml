@@ -6,7 +6,7 @@ services:
 
     container_name: ardupilot-sil
     ports:
-    - 15760-16000:5760-6000
+    - 15760-15780:5760-5780
     restart: 'always'
     environment:
     - COUNT=${NUMCOPTERS:-3}
@@ -30,6 +30,17 @@ services:
     restart: always
     command: redis-server --save 60 1 --loglevel warning
 
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/data
+    restart: always
+
 volumes:
   redis-data:
+    driver: local
+  redisinsight-data:
     driver: local
