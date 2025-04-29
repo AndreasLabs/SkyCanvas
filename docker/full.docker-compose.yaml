@@ -1,0 +1,21 @@
+services:
+  ardupilot-sil:
+    build:
+      context: .
+      dockerfile: ardupilot-sil.Dockerfile
+
+    container_name: ardupilot-sil
+    ports:
+    - 15760-16000:5760-6000
+    restart: 'always'
+    environment:
+    - COUNT=${NUMCOPTERS:-3}
+
+  conductor:
+    build:
+      context: ../conductor
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}  # Default to info if not set
+    command:
+      - "--config=config.yaml"
+    restart: unless-stopped
