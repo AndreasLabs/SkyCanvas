@@ -1,13 +1,3 @@
-pub mod ardulink;
-pub mod commander;
-pub mod groundlink;
-
-
-
-use tonic::{transport::Server, Request, Response, Status};
-use log::{debug, info};
-use prost::Message;
-
 pub mod skycanvas {
     pub mod types {
         tonic::include_proto!("skycanvas.types");

@@ -1,0 +1,17 @@
+syntax = "proto3";
+package skycanvas.groundlink;
+
+import "types.proto";
+
+service GroundlinkService{
+    rpc ArdulinkConnect(ArdulinkConnectionRequest) returns (stream ArdulinkConnectionResponse);
+}
+
+message ArdulinkConnectionRequest{
+    skycanvas.types.ArdulinkConnectionOptions options = 1;
+}
+
+message ArdulinkConnectionResponse{
+    skycanvas.types.ArdulinkConnectionStatusMessage status = 1;
+}
+
