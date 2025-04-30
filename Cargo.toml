@@ -1,2 +1,2 @@
 [workspace]
-members = ["conductor"]
+members = ["conductor", "scenarios"]

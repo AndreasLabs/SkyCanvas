@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use log::info;
+use mavlink::ardupilotmega::MavMessage;
+use redis::Commands;
 
 #[derive(Debug, Clone)]
 pub struct RedisOptions{
@@ -44,5 +46,10 @@ impl RedisConnection{
             options,
             client_name,
         }
+    }
+
+    pub fn publish_mavlink_message(&mut self, channel: &str, message: &MavMessage) -> Result<(), redis::RedisError>{
+        let msg_json = serde_json::to_string(message)?;
+        self.client.publish(channel, &msg_json)
     }
 }

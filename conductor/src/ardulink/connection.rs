@@ -15,7 +15,7 @@ use tokio::{self, sync::Mutex, task, time};
 use crate::{
     ardulink::{
         config::ArdulinkConnectionType,
-        tasks::{task_recv::ArdulinkTask_Recv, task_send::ArdulinkTask_Send},
+        tasks::{task_heartbeat::ArdulinkTask_Heartbeat, task_recv::ArdulinkTask_Recv, task_send::ArdulinkTask_Send, task_request_stream::ArdulinkTask_RequestStream},
     },
     redis::RedisConnection,
     state::State,
@@ -160,8 +160,16 @@ impl ArdulinkConnection {
         let receive_handle =
             ArdulinkTask_Recv::spawn(mav_con.clone(), should_stop.clone(), &state).await;
 
+        let send_handle = ArdulinkTask_Send::spawn(mav_con.clone(), should_stop.clone(), &state).await;
+
+        let heartbeat_handle = ArdulinkTask_Heartbeat::spawn(should_stop.clone(), &state).await;
+
+        let request_stream_handle = ArdulinkTask_RequestStream::spawn(should_stop.clone(), &state).await;
+
         // Join tasks when one exits or stop is requested
         let _ = receive_handle.await;
+        let _ = send_handle.await;
+        let _ = heartbeat_handle.await;
 
         info!("ArduLink => All tasks exited");
         Ok(())
