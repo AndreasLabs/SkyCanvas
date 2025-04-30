@@ -32,5 +32,9 @@ async fn main() -> Result<()> {
     let mut ardulink = ardulink::connection::ArdulinkConnection::new(ardulink_config.connection, &state)?;
     ardulink.start_task().await?;
 
+   loop{ 
+     // Sleep for 100ms
+     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+   }
     Ok(())
 }

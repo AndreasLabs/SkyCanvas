@@ -5,16 +5,26 @@ use mavlink::ardupilotmega::MavMessage;
 use redis::{Commands, PubSub, RedisConnectionInfo};
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
 use tokio::{self, sync::Mutex, task, time};
 
-use crate::{ardulink::config::ArdulinkConnectionType, redis::RedisConnection, state::State};
+use crate::{
+    ardulink::{
+        config::ArdulinkConnectionType,
+        tasks::{task_recv::ArdulinkTask_Recv, task_send::ArdulinkTask_Send},
+    },
+    redis::RedisConnection,
+    state::State,
+};
 
 type MavlinkMessageType = MavMessage;
+
+pub type MavlinkConnection =
+    Arc<Mutex<Box<dyn mavlink::MavConnection<MavlinkMessageType> + Send + Sync>>>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ArdulinkError {
@@ -34,6 +44,7 @@ pub struct ArdulinkConnection {
     connection_type: ArdulinkConnectionType,
     task_handles: Vec<task::JoinHandle<()>>,
     redis: Arc<Mutex<RedisConnection>>,
+    state: State,
 }
 
 impl ArdulinkConnection {
@@ -50,6 +61,7 @@ impl ArdulinkConnection {
             connection_type,
             task_handles: Vec::new(),
             redis,
+            state: state.clone(),
         })
     }
 
@@ -61,6 +73,7 @@ impl ArdulinkConnection {
         let connection_type = self.connection_type.clone();
         let redis = self.redis.clone();
         let error_redis = redis.clone();
+        let state = self.state.clone();
         let task_handle = task::spawn(async move {
             if let Err(e) = Self::start_task_inner(
                 con_string.clone(),
@@ -69,7 +82,10 @@ impl ArdulinkConnection {
                 should_stop,
                 connection_type,
                 redis,
-            ).await {
+                state,
+            )
+            .await
+            {
                 error!(
                     "ArduLink => Error starting task for connection string: {}",
                     con_string
@@ -78,9 +94,15 @@ impl ArdulinkConnection {
 
                 // Send on ardulink/error channel and log channel
                 let mut redis = error_redis.lock().await;
-                let _: () = redis.client.publish("ardulink/message", &e.to_string()).unwrap();
+                let _: () = redis
+                    .client
+                    .publish("ardulink/message", &e.to_string())
+                    .unwrap();
                 let _: () = redis.client.publish("ardulink/state", &"ERROR").unwrap();
-                let _: () = redis.client.publish("log", &format!("ArduLink => Error: {e:?}")).unwrap();
+                let _: () = redis
+                    .client
+                    .publish("log", &format!("ArduLink => Error: {e:?}"))
+                    .unwrap();
             }
         });
 
@@ -114,6 +136,7 @@ impl ArdulinkConnection {
         should_stop: Arc<AtomicBool>,
         _connection_type: ArdulinkConnectionType,
         redis: Arc<Mutex<RedisConnection>>,
+        state: State,
     ) -> Result<(), ArdulinkError> {
         // Make the connection
         info!(
@@ -130,106 +153,14 @@ impl ArdulinkConnection {
 
         // Request streams now handled by ExecTaskRequestStream
 
-        let mav_con = Arc::new(mav_con);
+        let mav_con = Arc::new(Mutex::new(mav_con));
 
         info!("ArduLink => Starting main tasks...");
 
-        // Send task
-        info!("ArduLink => Spawning send task");
-        let send_handle = task::spawn({
-            let vehicle = mav_con.clone();
-            let should_stop = should_stop.clone();
-            let (_, rx) = transmit_channels;
-            async move {
-                while !should_stop.load(Ordering::SeqCst) {
-                    match rx.recv_timeout(Duration::from_millis(100)) {
-                        Ok(msg) => {
-                            if should_stop.load(Ordering::SeqCst) {
-                                break;
-                            }
-                            trace!("ArduLink => Sending message to MAVLink: {msg:?}");
-                            // Only attempt to send if we're not stopping
-                            if !should_stop.load(Ordering::SeqCst) {
-                                let _ = vehicle.send(&mavlink::MavHeader::default(), &msg);
-                            }
-                        }
-                        Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                            // Check if we should stop
-                            if should_stop.load(Ordering::SeqCst) {
-                                break;
-                            }
-                            // Allow other tasks to run
-                            task::yield_now().await;
-                        }
-                        Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
-                            break;
-                        }
-                    }
-                }
-                debug!("ArduLink => Send task exiting");
-            }
-        });
-
-        // Receive task
-        info!("ArduLink => Spawning receive task");
-        let receive_handle = task::spawn({
-            let vehicle = mav_con.clone();
-            let should_stop = should_stop.clone();
-            let (recv_tx, _) = recv_channels;
-            async move {
-                while !should_stop.load(Ordering::SeqCst) {
-                    if should_stop.load(Ordering::SeqCst) {
-                        break;
-                    }
-
-                    // Use standard receive with a timeout by checking the flag frequently
-                    let recv_result = vehicle.recv();
-
-                    match recv_result {
-                        Ok((_header, msg)) => {
-                            if let Err(e) = recv_tx.send(msg.clone()) {
-                                error!(
-                                    "ArduLink => Failed to send received message to channel: {:?}",
-                                    e
-                                );
-                                if should_stop.load(Ordering::SeqCst) {
-                                    break;
-                                }
-                            }
-
-                            let msg_json = serde_json::to_string(&msg).unwrap();
-
-                            let mut redis = redis.lock().await;
-                            let _: () = redis.client.publish("ardulink/raw", &msg_json).unwrap();
-                        }
-                        Err(mavlink::error::MessageReadError::Io(e)) => {
-                            if e.kind() == std::io::ErrorKind::WouldBlock {
-                                // No messages currently available to receive -- wait a while
-                                time::sleep(Duration::from_millis(10)).await;
-                            } else if !should_stop.load(Ordering::SeqCst) {
-                                // Only log errors if we're not stopping
-                                error!("ArduLink => Receive error: {e:?}");
-                                break;
-                            }
-                        }
-                        // Messages that didn't get through due to parser errors are ignored
-                        _ => {}
-                    }
-
-                    // Check stop flag more frequently
-                    if should_stop.load(Ordering::SeqCst) {
-                        break;
-                    }
-                    
-                    // Allow other tasks to run
-                    task::yield_now().await;
-                }
-                debug!("ArduLink => Receive task exiting");
-            }
-        });
+        let receive_handle =
+            ArdulinkTask_Recv::spawn(mav_con.clone(), should_stop.clone(), &state).await;
 
         // Join tasks when one exits or stop is requested
-        let _ = send_handle.await;
         let _ = receive_handle.await;
 
         info!("ArduLink => All tasks exited");
