@@ -10,7 +10,7 @@ interface Message {
 interface RedisStoreState {
   status: WebSocketStatus;
   connected: boolean;
-  messages: Record<string, Message[]>;
+  messages: Record<string, Message>;
   subscribedChannels: string[];
   
   // Actions
@@ -33,7 +33,6 @@ export const useRedisStore = create<RedisStoreState>((set) => ({
   }),
   
   addMessage: (channel: string, content: string) => set((state) => {
-    const channelMessages = state.messages[channel] || [];
     const newMessage: Message = {
       channel,
       content,
@@ -43,7 +42,7 @@ export const useRedisStore = create<RedisStoreState>((set) => ({
     return {
       messages: {
         ...state.messages,
-        [channel]: [...channelMessages, newMessage],
+        [channel]: newMessage,
       },
     };
   }),
@@ -63,15 +62,15 @@ export const useRedisStore = create<RedisStoreState>((set) => ({
   
   clearMessages: (channel?: string) => set((state) => {
     if (channel) {
-      // Using object destructuring but ignoring the extracted value
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [channel]: ignored, ...restChannels } = state.messages;
+      const newMessages = { ...state.messages };
+      delete newMessages[channel];
       return {
-        messages: restChannels,
+        messages: newMessages,
+      };
+    } else {
+      return {
+        messages: {},
       };
     }
-    return {
-      messages: {},
-    };
   }),
 })); 

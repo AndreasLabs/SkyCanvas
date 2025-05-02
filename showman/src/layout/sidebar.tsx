@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   IconHome,
   IconLogs,
-  IconDatabase,
+  IconDrone,
 } from '@tabler/icons-react';
 
 interface NavItemProps {
@@ -52,10 +52,10 @@ export function Sidebar() {
       onClick: () => navigate('/'),
     },
     {
-      label: 'Redis Demo',
-      icon: <IconDatabase size="1.2rem" />,
-      path: '/redis-demo',
-      onClick: () => navigate('/redis-demo'),
+      label: 'ArduPilot GCS',
+      icon: <IconDrone size="1.2rem" />,
+      path: '/ardupilot',
+      onClick: () => navigate('/ardupilot'),
     },
     {
       label: 'Log Entry',

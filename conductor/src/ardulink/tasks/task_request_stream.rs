@@ -30,7 +30,7 @@ impl ArdulinkTask_RequestStream {
             target_system: 0,
             target_component: 0,
             req_stream_id: 0,
-            req_message_rate: 2, // Recv Rate
+            req_message_rate: 3, // Recv Rate
             start_stop: 1,
         });
 
