@@ -1,5 +1,6 @@
 // API Configuration
 export const API_URL = 'http://localhost:4151';
+export const WS_URL = 'ws://127.0.0.1:8080/ws'; // WebSocket URL for Redis bridge with correct path
 
 // Query Configuration
 export const QUERY_CONFIG = {

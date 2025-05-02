@@ -11,6 +11,7 @@ import {
 import { IconRocket } from '@tabler/icons-react';
 import { LAYOUT } from '../constants';
 import { useNavigate } from 'react-router-dom';
+import { RedisConnectionStatus } from '../components/RedisConnectionStatus';
 
 interface TopNavbarProps {
   navbarOpened: boolean;
@@ -33,6 +34,8 @@ export function TopNavbar({ navbarOpened, onNavbarToggle }: TopNavbarProps) {
               </Group>
             </UnstyledButton>
           </Group>
+          
+          <RedisConnectionStatus />
         </Flex>
       </Container>
     </AppShell.Header>

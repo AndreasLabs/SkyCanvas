@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   IconHome,
   IconLogs,
+  IconDatabase,
 } from '@tabler/icons-react';
 
 interface NavItemProps {
@@ -32,7 +33,7 @@ function NavItem({ label, icon, active, disabled, selectedItem, onClick }: NavIt
           </Stack>
         </Group>
       }
-      active={active}
+      data-active={active || undefined}
       disabled={disabled}
       onClick={onClick}
     />
@@ -49,6 +50,12 @@ export function Sidebar() {
       icon: <IconHome size="1.2rem" />,
       path: '/',
       onClick: () => navigate('/'),
+    },
+    {
+      label: 'Redis Demo',
+      icon: <IconDatabase size="1.2rem" />,
+      path: '/redis-demo',
+      onClick: () => navigate('/redis-demo'),
     },
     {
       label: 'Log Entry',
