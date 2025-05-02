@@ -1,3 +1,4 @@
+use crate::ardulink::cursed_strings;
 use crate::{ardulink::connection::MavlinkConnection, redis::RedisConnection};
 use crate::state::State;
 
@@ -20,7 +21,7 @@ impl ArdulinkTask_Recv {
         vehicle: MavlinkConnection,
         should_stop: Arc<AtomicBool>,
         state: &State,
-    ) -> JoinHandle<()> {
+    ) -> JoinHandle<Result<(), anyhow::Error>> {
         info!("ArduLink // RecvTask // Spawning + Connecting to Redis");
         let redis = RedisConnection::new(state.redis.clone(), "ardulink_recv".to_string());
         let redis = Arc::new(Mutex::new(redis));
@@ -39,9 +40,9 @@ impl ArdulinkTask_Recv {
                     Ok((_header, msg)) => {
                         // Process received message
                         let msg_json = serde_json::to_string(&msg).unwrap();
-
+                        let msg_type = cursed_strings::mavlink_message_type(&msg);
                         let mut redis_conn = redis.lock().await;
-                        let _: () = redis_conn.client.publish("channels/ardulink/recv", &msg_json).unwrap();
+                        let _: () = redis_conn.client.publish(format!("channels/ardulink/recv/{}", msg_type), &msg_json).unwrap();
                     }
                     Err(mavlink::error::MessageReadError::Io(e)) => {
                         if e.kind() == std::io::ErrorKind::WouldBlock {
@@ -67,6 +68,7 @@ impl ArdulinkTask_Recv {
                 task::yield_now().await;
             }
             debug!("ArduLink // RecvTask // Exiting");
+            Ok(())
         })
     }
 }

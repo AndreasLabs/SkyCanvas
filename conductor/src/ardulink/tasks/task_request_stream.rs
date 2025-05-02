@@ -36,10 +36,10 @@ impl ArdulinkTask_RequestStream {
 
         task::spawn(async move {
 
-            let mut redis = RedisConnection::new(state.redis.clone(), "ardulink_heartbeat".to_string());
+            let mut redis = RedisConnection::new(state.redis.clone(), "ardulink_request_stream".to_string());
             let (mut redis_sink, mut redis_stream) = redis.client.get_async_pubsub().await?.split();
 
-            redis_sink.subscribe("channels/ardulink/recv").await?;
+            redis_sink.subscribe("channels/ardulink/recv/HEARTBEAT").await?;
                     
             info!("ArduLink // RequestStreamTask // Redis connected as ardulink_request_stream");
 
@@ -64,6 +64,7 @@ impl ArdulinkTask_RequestStream {
 
             info!("ArduLink // RequestStreamTask // First heartbeat received starting request stream packet");
             let rs_json = serde_json::to_string(&request_stream).unwrap();
+            
             let _: () = redis.client.publish("channels/ardulink/send", &rs_json).unwrap();
             debug!("ArduLink // RequestStreamTask // Exiting");
             Ok(())

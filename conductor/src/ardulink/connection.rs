@@ -42,7 +42,7 @@ pub struct ArdulinkConnection {
     connection_string: String,
     should_stop: Arc<AtomicBool>,
     connection_type: ArdulinkConnectionType,
-    task_handles: Vec<task::JoinHandle<()>>,
+    task_handles: Vec<task::JoinHandle<Result<(), anyhow::Error>>>,
     redis: Arc<Mutex<RedisConnection>>,
     state: State,
 }
@@ -74,36 +74,49 @@ impl ArdulinkConnection {
         let redis = self.redis.clone();
         let error_redis = redis.clone();
         let state = self.state.clone();
-        let task_handle = task::spawn(async move {
-            if let Err(e) = Self::start_task_inner(
-                con_string.clone(),
-                recv_channels,
-                transmit_channels,
-                should_stop,
-                connection_type,
-                redis,
-                state,
-            )
-            .await
-            {
-                error!(
-                    "ArduLink => Error starting task for connection string: {}",
-                    con_string
-                );
-                error!("ArduLink => Error: {e:?}");
 
-                // Send on ardulink/error channel and log channel
-                let mut redis = error_redis.lock().await;
-                let _: () = redis
-                    .client
-                    .publish("ardulink/message", &e.to_string())
-                    .unwrap();
-                let _: () = redis.client.publish("ardulink/state", &"ERROR").unwrap();
-                let _: () = redis
-                    .client
-                    .publish("log", &format!("ArduLink => Error: {e:?}"))
-                    .unwrap();
-            }
+        let task_handle = task::spawn(async move {
+            let mut mav_con: Box<dyn mavlink::MavConnection<MavlinkMessageType> + Send + Sync> =
+            mavlink::connect::<MavlinkMessageType>(&con_string)
+                .map_err(|e| ArdulinkError::ConnectionError(e.into()))?;
+
+
+             // Make the connection
+            info!(
+                "ArduLink => Connecting to MAVLink with connection string: {}",
+                con_string
+            );
+
+       
+
+            info!("ArduLink => Setting up connection parameters");
+            mav_con.set_protocol_version(mavlink::MavlinkVersion::V2);
+
+        // Request streams now handled by ExecTaskRequestStream
+
+        let mav_con = Arc::new(Mutex::new(mav_con));
+
+            info!("ArduLink => Starting main tasks...");
+
+          
+            let receive_handle =
+            ArdulinkTask_Recv::spawn(mav_con.clone(), should_stop.clone(), &state).await;
+
+            let send_handle = ArdulinkTask_Send::spawn(mav_con.clone(), should_stop.clone(), &state).await;
+
+            let heartbeat_handle = ArdulinkTask_Heartbeat::spawn(should_stop.clone(), &state).await;
+
+            let request_stream_handle = ArdulinkTask_RequestStream::spawn(should_stop.clone(), &state).await;
+
+            // Join tasks when one exits or stop is requested
+            let _ = receive_handle.await;
+            let _ = send_handle.await;
+            let _ = heartbeat_handle.await;
+            let _ = request_stream_handle.await;
+            info!("ArduLink => All tasks exited");
+            Ok(())
+
+
         });
 
         self.task_handles.push(task_handle);
@@ -126,52 +139,6 @@ impl ArdulinkConnection {
         }
 
         info!("ArduLink => All tasks stopped");
-        Ok(())
-    }
-
-    async fn start_task_inner(
-        con_string: String,
-        recv_channels: (Sender<MavlinkMessageType>, Receiver<MavlinkMessageType>),
-        transmit_channels: (Sender<MavlinkMessageType>, Receiver<MavlinkMessageType>),
-        should_stop: Arc<AtomicBool>,
-        _connection_type: ArdulinkConnectionType,
-        redis: Arc<Mutex<RedisConnection>>,
-        state: State,
-    ) -> Result<(), ArdulinkError> {
-        // Make the connection
-        info!(
-            "ArduLink => Connecting to MAVLink with connection string: {}",
-            con_string
-        );
-
-        let mut mav_con: Box<dyn mavlink::MavConnection<MavlinkMessageType> + Send + Sync> =
-            mavlink::connect::<MavlinkMessageType>(&con_string)
-                .map_err(|e| ArdulinkError::ConnectionError(e.into()))?;
-
-        info!("ArduLink => Setting up connection parameters");
-        mav_con.set_protocol_version(mavlink::MavlinkVersion::V2);
-
-        // Request streams now handled by ExecTaskRequestStream
-
-        let mav_con = Arc::new(Mutex::new(mav_con));
-
-        info!("ArduLink => Starting main tasks...");
-
-        let receive_handle =
-            ArdulinkTask_Recv::spawn(mav_con.clone(), should_stop.clone(), &state).await;
-
-        let send_handle = ArdulinkTask_Send::spawn(mav_con.clone(), should_stop.clone(), &state).await;
-
-        let heartbeat_handle = ArdulinkTask_Heartbeat::spawn(should_stop.clone(), &state).await;
-
-        let request_stream_handle = ArdulinkTask_RequestStream::spawn(should_stop.clone(), &state).await;
-
-        // Join tasks when one exits or stop is requested
-        let _ = receive_handle.await;
-        let _ = send_handle.await;
-        let _ = heartbeat_handle.await;
-
-        info!("ArduLink => All tasks exited");
         Ok(())
     }
 

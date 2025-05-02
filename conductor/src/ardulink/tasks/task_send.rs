@@ -1,3 +1,4 @@
+use crate::ardulink::cursed_strings;
 use crate::{ardulink::connection::MavlinkConnection, redis::RedisConnection};
 use crate::state::State;
 use futures_util::StreamExt;
@@ -36,26 +37,27 @@ impl ArdulinkTask_Send {
                 if should_stop.load(Ordering::SeqCst) {
                     break;
                 }
-
+                debug!("ArduLink // SendTask // Waiting for message");
                 let msg = redis_stream.next().await.unwrap();
                 let msg : String = msg.get_payload().unwrap();
+                debug!("ArduLink // SendTask // Message received: {}", msg);
                 let msg = serde_json::from_str::<MavMessage>(&msg)?;
 
                 {
                     let vehicle = vehicle.lock().await;
+                    let msg_type = cursed_strings::mavlink_message_type(&msg);
+                    debug!("ArduLink // SendTask // Sending message: {}", msg_type);
                     vehicle.send(&mavlink::MavHeader::default(), &msg).unwrap();
                 }
          
                 // Check stop flag more frequently
                 if should_stop.load(Ordering::SeqCst) {
-                    info!("ArduLink // RecvTask // Stopping");
+                    info!("ArduLink // SendTask // Stopping");
                     break;
                 }
-                
-                // Allow other tasks to run
-                task::yield_now().await;
+         
             }
-            debug!("ArduLink // RecvTask // Exiting");
+            debug!("ArduLink // SendTask // Exiting");
             Ok(())
         })
     }

@@ -1,3 +1,4 @@
+use crate::ardulink::cursed_strings;
 use crate::{ardulink::connection::MavlinkConnection, redis::RedisConnection};
 use crate::state::State;
 use futures_util::StreamExt;
@@ -49,7 +50,7 @@ impl ArdulinkTask_Heartbeat {
             let mut redis = RedisConnection::new(state.redis.clone(), "ardulink_heartbeat".to_string());
             let (mut redis_sink, mut redis_stream) = redis.client.get_async_pubsub().await?.split();
 
-            redis_sink.subscribe("channels/ardulink/recv").await?;
+            redis_sink.subscribe("channels/ardulink/recv/HEARTBEAT").await?;
                     
             info!("ArduLink // HeartbeatTask // Redis connected as ardulink_heartbeat");
 
