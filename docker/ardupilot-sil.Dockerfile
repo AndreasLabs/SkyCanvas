@@ -37,7 +37,7 @@ RUN ./waf copter
 
 
 # Variables for simulator
-ENV COUNT 3
+ENV COUNT 1
 #34°12'25.2"N 117°24'04.6"W
 ENV LAT 34.20699
 ENV LON -117.40128
