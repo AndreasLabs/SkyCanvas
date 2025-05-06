@@ -22,7 +22,7 @@ impl ScenarioRunner {
         Self {
             current_t: 0.0,
             max_t,
-            scenario,
+            scenario: scenario.clone(),
             redis_handle: Arc::new(Mutex::new(redis)),
             start_time: Instant::now()
         }
@@ -37,8 +37,7 @@ impl ScenarioRunner {
         while self.current_t < self.max_t{
             
             let mut scene = self.scenario.lock().await;
-            let mut redis = self.redis_handle.lock().await;
-            scene.run(self.current_t, &mut redis)?;
+            scene.run(self.current_t,self.redis_handle.clone()  ).await?;
             if self.current_t % 1.0 == 0. {
                 info!("T = {:0.1}s", self.current_t );
             }

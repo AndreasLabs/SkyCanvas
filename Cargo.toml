@@ -1,2 +1,2 @@
 [workspace]
-members = ["conductor", "groundlink", "scenarios"]
+members = ["conductor", "foxglove_live", "groundlink", "mcap_logger", "scenarios"]

@@ -15,10 +15,11 @@ use tokio::{self, sync::Mutex, task, time};
 use crate::{
     ardulink::{
         config::ArdulinkConnectionType,
-        tasks::{task_heartbeat::ArdulinkTask_Heartbeat, task_recv::ArdulinkTask_Recv, task_send::ArdulinkTask_Send, task_request_stream::ArdulinkTask_RequestStream},
+        tasks::{task_heartbeat::ArdulinkTask_Heartbeat, task_recv::ArdulinkTask_Recv, task_send::ArdulinkTask_Send, task_request_stream::ArdulinkTask_RequestStream, task_health::ArdulinkTask_Health},
     },
     redis::RedisConnection,
     state::State,
+    transformers::{Transformer, TransformerTask},
 };
 
 type MavlinkMessageType = MavMessage;
@@ -45,6 +46,7 @@ pub struct ArdulinkConnection {
     task_handles: Vec<task::JoinHandle<Result<(), anyhow::Error>>>,
     redis: Arc<Mutex<RedisConnection>>,
     state: State,
+    transformers: Vec<Arc<dyn Transformer>>,
 }
 
 impl ArdulinkConnection {
@@ -62,7 +64,18 @@ impl ArdulinkConnection {
             task_handles: Vec::new(),
             redis,
             state: state.clone(),
+            transformers: Vec::new(),
         })
+    }
+
+    /// Add a transformer to the connection
+    pub fn add_transformer(&mut self, transformer: Arc<dyn Transformer>) {
+        self.transformers.push(transformer);
+    }
+
+    /// Add multiple transformers to the connection
+    pub fn add_transformers(&mut self, transformers: Vec<Arc<dyn Transformer>>) {
+        self.transformers.extend(transformers);
     }
 
     pub async fn start_task(&mut self) -> Result<(), ArdulinkError> {
@@ -108,11 +121,14 @@ impl ArdulinkConnection {
 
             let request_stream_handle = ArdulinkTask_RequestStream::spawn(should_stop.clone(), &state).await;
 
+            let health_handle = ArdulinkTask_Health::spawn(should_stop.clone(), &state).await;
+
             // Join tasks when one exits or stop is requested
             let _ = receive_handle.await;
             let _ = send_handle.await;
             let _ = heartbeat_handle.await;
             let _ = request_stream_handle.await;
+            let _ = health_handle.await;
             info!("ArduLink => All tasks exited");
             Ok(())
 
@@ -120,6 +136,23 @@ impl ArdulinkConnection {
         });
 
         self.task_handles.push(task_handle);
+        
+        // If there are transformers, start the transformer task
+        if !self.transformers.is_empty() {
+            info!("ArduLink => Starting transformer task with {} transformers", self.transformers.len());
+            let transformers = self.transformers.clone();
+            let should_stop = self.should_stop.clone();
+            let state = self.state.clone();
+            
+            let transformer_task = TransformerTask::spawn(
+                transformers,
+                should_stop,
+                &state
+            ).await;
+            
+            self.task_handles.push(transformer_task);
+        }
+        
         Ok(())
     }
 

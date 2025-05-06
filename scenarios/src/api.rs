@@ -1,8 +1,10 @@
 use conductor::redis::RedisConnection;
+use async_trait::async_trait;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-
-
+#[async_trait]
 pub trait Scenario{
-    fn run(&mut self, t: f64, redis: &mut RedisConnection) -> Result<(), anyhow::Error>;
+    async fn run(&mut self, t: f64, redis: Arc<Mutex<RedisConnection>>) -> Result<(), anyhow::Error>;
 }
 

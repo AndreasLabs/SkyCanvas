@@ -37,16 +37,16 @@ impl ArdulinkTask_Send {
                 if should_stop.load(Ordering::SeqCst) {
                     break;
                 }
-                debug!("ArduLink // SendTask // Waiting for message");
+                trace!("ArduLink // SendTask // Waiting for message");
                 let msg = redis_stream.next().await.unwrap();
                 let msg : String = msg.get_payload().unwrap();
-                debug!("ArduLink // SendTask // Message received: {}", msg);
+                trace!("ArduLink // SendTask // Message received: {}", msg);
                 let msg = serde_json::from_str::<MavMessage>(&msg)?;
 
                 {
                     let vehicle = vehicle.lock().await;
                     let msg_type = cursed_strings::mavlink_message_type(&msg);
-                    debug!("ArduLink // SendTask // Sending message: {}", msg_type);
+                    trace!("ArduLink // SendTask // Sending message: {}", msg_type);
                     vehicle.send(&mavlink::MavHeader::default(), &msg).unwrap();
                 }
          
@@ -57,7 +57,7 @@ impl ArdulinkTask_Send {
                 }
          
             }
-            debug!("ArduLink // SendTask // Exiting");
+            info!("ArduLink // SendTask // Exiting");
             Ok(())
         })
     }

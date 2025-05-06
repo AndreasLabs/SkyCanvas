@@ -15,6 +15,6 @@ async fn main() -> Result<(), anyhow::Error>{
    let scenario = ScenarioLabArm::default();
    let scenario = Arc::new(Mutex::new(scenario));
 
-   let mut runner = ScenarioRunner::new(scenario, 30.0, RedisOptions::new());
+   let mut runner = ScenarioRunner::new(scenario, 90.0, RedisOptions::new());
    runner.run().await
 }
