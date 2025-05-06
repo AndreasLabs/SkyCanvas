@@ -102,17 +102,26 @@ impl RedisHandler {
                             // Store channel mapping
                             channels.lock().await.insert(channel.clone(), foxglove_channel);
                             
-                            // Notify for channel update
-                            let _ = message_tx.send((
-                                "channel_update".to_string(),
-                                serde_json::Value::Null,
-                                timestamp,
-                            ));
+                            // Notify for channel update - ignore errors if no subscribers
+                            if message_tx.receiver_count() > 0 {
+                                if let Err(e) = message_tx.send((
+                                    "channel_update".to_string(),
+                                    serde_json::Value::Null,
+                                    timestamp,
+                                )) {
+                                    debug!("Failed to send channel update notification: {}", e);
+                                }
+                            }
                         }
                         
-                        // Send message to WebSocket clients
-                        if let Err(e) = message_tx.send((channel, json_value, timestamp)) {
-                            error!("Failed to send message to WebSocket clients: {}", e);
+                        // Send message to WebSocket clients - only if there are subscribers
+                        if message_tx.receiver_count() > 0 {
+                            if let Err(e) = message_tx.send((channel, json_value, timestamp)) {
+                                error!("Failed to send message to WebSocket clients: {}", e);
+                            }
+                        } else {
+                            // No clients connected yet, this is normal
+                            debug!("No WebSocket clients connected yet, skipping message for channel: {}", channel);
                         }
                     }
                     Err(e) => {

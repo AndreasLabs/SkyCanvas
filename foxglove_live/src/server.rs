@@ -86,14 +86,15 @@ impl WebSocketServer {
             
             // Spawn a task to handle this client
             tokio::spawn(async move {
-                if let Err(e) = Self::handle_connection(stream, client_id.clone(), redis_handler, clients.clone(), message_tx).await {
-                    error!("Error handling WebSocket connection: {}", e);
+                match Self::handle_connection(stream, client_id.clone(), redis_handler, clients.clone(), message_tx).await {
+                    Ok(_) => info!("WebSocket connection closed gracefully: {}", addr_clone),
+                    Err(e) => error!("Error handling WebSocket connection: {}", e),
                 }
                 
                 // Clean up client state when done
                 let mut clients = clients.lock().await;
                 clients.remove(&client_id);
-                info!("WebSocket connection closed: {}", addr_clone);
+                info!("WebSocket connection cleanup completed: {}", addr_clone);
             });
         }
         
@@ -108,8 +109,20 @@ impl WebSocketServer {
         clients: Arc<Mutex<HashMap<String, ClientState>>>,
         message_tx: broadcast::Sender<(String, serde_json::Value, i64)>,
     ) -> Result<()> {
+        // Set TCP_NODELAY to improve latency
+        if let Err(e) = stream.set_nodelay(true) {
+            warn!("Failed to set TCP_NODELAY: {}", e);
+        }
+        
         // Accept WebSocket connection
-        let ws_stream = accept_async(stream).await?;
+        let ws_stream = match accept_async(stream).await {
+            Ok(stream) => stream,
+            Err(e) => {
+                error!("Failed to accept WebSocket connection: {}", e);
+                return Err(anyhow!("WebSocket handshake failed: {}", e));
+            }
+        };
+        
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
         
         // Send initial server status
@@ -117,24 +130,34 @@ impl WebSocketServer {
             level: "info".to_string(),
             message: "Connected to Foxglove WebSocket Server".to_string(),
         })?;
-        ws_sender.send(WsMessage::Text(status_msg)).await?;
+        
+        if let Err(e) = ws_sender.send(WsMessage::Text(status_msg)).await {
+            error!("Failed to send initial status message: {}", e);
+            return Err(anyhow!("Failed to send initial message: {}", e));
+        }
         
         // Create subscription to Redis messages
         let mut message_rx = message_tx.subscribe();
         
         // Send initial channel advertisement
-        Self::advertise_channels(&redis_handler, &mut ws_sender).await?;
+        if let Err(e) = Self::advertise_channels(&redis_handler, &mut ws_sender).await {
+            error!("Failed to advertise initial channels: {}", e);
+            return Err(e);
+        }
         
         // Create channels for communication between tasks
-        let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel();
+        let (stop_tx, _) = tokio::sync::oneshot::channel();
         
         // Spawn a task to receive messages from Redis and forward to WebSocket
         let redis_to_ws_task = {
             let redis_handler = redis_handler.clone();
             let client_id = client_id.clone();
             let clients = clients.clone();
+            let mut ws_sender = ws_sender.clone(); // Clone the sender for the task
             
             tokio::spawn(async move {
+                debug!("Started Redis-to-WebSocket forwarder for client {}", client_id);
+                
                 while let Ok(msg) = message_rx.recv().await {
                     let (channel, data, timestamp) = msg;
                     
@@ -148,45 +171,60 @@ impl WebSocketServer {
                     }
                     
                     // Check if client is subscribed to this channel
-                    let is_subscribed = {
-                        let clients = clients.lock().await;
-                        if let Some(client) = clients.get(&client_id) {
-                            let foxglove_channel = match redis_handler.get_channel_by_id(&channel).await {
-                                Some(ch) => ch,
-                                None => continue, // Channel not found
-                            };
-                            client.subscriptions.contains(&foxglove_channel.id)
-                        } else {
-                            false
-                        }
+                    let foxglove_channel_id_opt = {
+                        // Use the public method get_channel_by_id to find the channel
+                        match redis_handler.get_channels().await.iter()
+                            .find(|c| c.topic == channel) {
+                                Some(ch) => Some(ch.id.clone()),
+                                None => None,
+                            }
                     };
                     
-                    // Only send if subscribed
-                    if is_subscribed {
-                        let foxglove_channel = match redis_handler.get_channel_by_id(&channel).await {
-                            Some(ch) => ch,
-                            None => continue, // Channel not found
-                        };
-                        
-                        // Construct Foxglove message
-                        let message = ServerMessage::Message {
-                            channel: foxglove_channel.id.clone(),
-                            log_time: None,
-                            publish_time: None,
-                            receive_time: timestamp,
-                            data,
-                        };
-                        
-                        // Send to WebSocket
-                        match serde_json::to_string(&message) {
-                            Ok(json) => {
-                                if let Err(e) = ws_sender.send(WsMessage::Text(json)).await {
-                                    error!("Failed to send message to WebSocket: {}", e);
-                                    break;
-                                }
+                    // Only proceed if we found a valid Foxglove channel ID
+                    if let Some(foxglove_channel_id) = foxglove_channel_id_opt {
+                        // Check if client is subscribed to this channel
+                        let is_subscribed = {
+                            let clients = clients.lock().await;
+                            if let Some(client) = clients.get(&client_id) {
+                                client.subscriptions.contains(&foxglove_channel_id)
+                            } else {
+                                false
                             }
-                            Err(e) => {
-                                error!("Failed to serialize message: {}", e);
+                        };
+                        
+                        // Only send if subscribed
+                        if is_subscribed {
+                            // Get the full channel info
+                            if let Some(foxglove_channel) = redis_handler.get_channels().await.iter()
+                                .find(|c| c.id == foxglove_channel_id) {
+                                
+                                // Construct Foxglove message
+                                let message = ServerMessage::Message {
+                                    channel: foxglove_channel.id.clone(),
+                                    log_time: None,
+                                    publish_time: None,
+                                    receive_time: timestamp,
+                                    data,
+                                };
+                                
+                                // Send to WebSocket
+                                match serde_json::to_string(&message) {
+                                    Ok(json) => {
+                                        let send_result = ws_sender.send(WsMessage::Text(json)).await;
+                                        if let Err(err) = send_result {
+                                            let err_str = err.to_string().to_lowercase();
+                                            if err_str.contains("connection reset") {
+                                                debug!("WebSocket connection reset: {}", err);
+                                            } else {
+                                                error!("Failed to send message to WebSocket: {}", err);
+                                            }
+                                            break;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to serialize message: {}", e);
+                                    }
+                                }
                             }
                         }
                     }
@@ -200,35 +238,69 @@ impl WebSocketServer {
         while let Some(result) = ws_receiver.next().await {
             match result {
                 Ok(msg) => {
-                    if let WsMessage::Text(text) = msg {
-                        // Parse client message
-                        match serde_json::from_str::<ClientMessage>(&text) {
-                            Ok(client_msg) => match client_msg {
-                                ClientMessage::Subscribe { channel_id } => {
-                                    Self::handle_subscribe(
-                                        client_id.clone(),
-                                        channel_id,
-                                        &clients,
-                                    ).await?;
+                    match msg {
+                        WsMessage::Text(text) => {
+                            // Parse client message
+                            match serde_json::from_str::<ClientMessage>(&text) {
+                                Ok(client_msg) => match client_msg {
+                                    ClientMessage::Subscribe { channel_id } => {
+                                        if let Err(e) = Self::handle_subscribe(
+                                            client_id.clone(),
+                                            channel_id,
+                                            &clients,
+                                        ).await {
+                                            error!("Failed to handle subscribe: {}", e);
+                                        }
+                                    }
+                                    ClientMessage::Unsubscribe { channel_id } => {
+                                        if let Err(e) = Self::handle_unsubscribe(
+                                            client_id.clone(),
+                                            channel_id,
+                                            &clients,
+                                        ).await {
+                                            error!("Failed to handle unsubscribe: {}", e);
+                                        }
+                                    }
+                                },
+                                Err(e) => {
+                                    warn!("Failed to parse client message: {}", e);
                                 }
-                                ClientMessage::Unsubscribe { channel_id } => {
-                                    Self::handle_unsubscribe(
-                                        client_id.clone(),
-                                        channel_id,
-                                        &clients,
-                                    ).await?;
-                                }
-                            },
-                            Err(e) => {
-                                warn!("Failed to parse client message: {}", e);
                             }
                         }
-                    } else if let WsMessage::Close(_) = msg {
-                        break;
+                        WsMessage::Close(_) => {
+                            debug!("Received close message from client {}", client_id);
+                            break;
+                        }
+                        WsMessage::Ping(data) => {
+                            // Respond to ping with pong
+                            if let Err(e) = ws_sender.send(WsMessage::Pong(data)).await {
+                                error!("Failed to send pong: {}", e);
+                                break;
+                            }
+                        }
+                        _ => {}  // Ignore other message types
                     }
                 }
                 Err(e) => {
-                    error!("WebSocket error: {}", e);
+                    // Handle tungstenite errors
+                    match &e {
+                        tokio_tungstenite::tungstenite::Error::ConnectionClosed => {
+                            debug!("WebSocket connection closed normally");
+                        }
+                        tokio_tungstenite::tungstenite::Error::Protocol(_) => {
+                            warn!("WebSocket protocol error: {}", e);
+                        }
+                        tokio_tungstenite::tungstenite::Error::Io(io_err) => {
+                            if io_err.kind() == std::io::ErrorKind::ConnectionReset {
+                                debug!("WebSocket connection reset by peer");
+                            } else {
+                                error!("WebSocket I/O error: {}", e);
+                            }
+                        }
+                        _ => {
+                            error!("WebSocket error: {}", e);
+                        }
+                    }
                     break;
                 }
             }
@@ -253,12 +325,16 @@ impl WebSocketServer {
         
         // Only advertise if we have channels
         if !channels.is_empty() {
+            let channel_count = channels.len();
             let message = ServerMessage::Advertise {
                 channels,
             };
             
             let json = serde_json::to_string(&message)?;
             ws_sender.send(WsMessage::Text(json)).await?;
+            debug!("Advertised {} channels", channel_count);
+        } else {
+            debug!("No channels to advertise yet");
         }
         
         Ok(())
