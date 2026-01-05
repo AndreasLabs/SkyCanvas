@@ -1,12 +1,11 @@
-use crate::{ardulink::connection::MavlinkConnection, redis::RedisConnection};
+use crate::redis::RedisConnection;
 use crate::state::State;
 use futures_util::StreamExt;
-use log::{debug, error, info, trace};
+use log::{debug, info};
 use mavlink::ardupilotmega::MavMessage;
-use tokio::{task, time::{self, Duration}, task::JoinHandle};
+use tokio::{task, task::JoinHandle};
 use serde_json;
 use redis::Commands;
-use tokio::sync::Mutex;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,

@@ -1,8 +1,9 @@
-use crate::{ardulink::connection::MavlinkConnection, redis::RedisConnection};
+use crate::redis::RedisConnection;
 use crate::state::State;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::StreamExt;
 use log::{debug, error, info, trace, warn};
 use mavlink::ardupilotmega::{EkfStatusFlags, MavMessage, EKF_STATUS_REPORT_DATA, SYS_STATUS_DATA};
+use redis::Commands;
 use serde::{Deserialize, Serialize};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -12,7 +13,6 @@ use tokio::{
     task::{self, JoinHandle},
     time::{self, Duration, Instant},
 };
-use redis::Commands;
 
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

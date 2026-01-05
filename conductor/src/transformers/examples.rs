@@ -1,8 +1,7 @@
 use std::sync::Arc;
 use anyhow::Error;
 use async_trait::async_trait;
-use log::{debug, info};
-use mavlink::ardupilotmega::{MavMessage, STATUSTEXT_DATA};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

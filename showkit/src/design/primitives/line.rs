@@ -2,6 +2,7 @@ use crate::design::primitives::point::ShowPoint;
 
 
 
+#[allow(dead_code)]
 pub struct ShowLine{
     id: u32,
     points: Vec<ShowPoint>,

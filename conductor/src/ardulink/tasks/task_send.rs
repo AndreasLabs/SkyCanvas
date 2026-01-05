@@ -10,11 +10,10 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use log::{debug, error, info, trace};
+use log::{info, trace};
 use mavlink::ardupilotmega::MavMessage;
-use tokio::{task, time::{self, Duration}, task::JoinHandle};
+use tokio::{task, task::JoinHandle};
 use serde_json;
-use redis::Commands;
 use tokio::sync::Mutex;
 
 impl ArdulinkTask_Send {

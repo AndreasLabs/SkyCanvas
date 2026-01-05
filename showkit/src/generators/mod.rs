@@ -8,6 +8,7 @@ pub trait ShowDesignGenerator{
 }
 
 
+#[allow(dead_code)]
 pub struct ShowDesign{
     primitives: Vec<ShowPrimitive>,
 }

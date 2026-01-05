@@ -1,8 +1,7 @@
 use anyhow::Error;
 use crossbeam_channel::{Receiver, Sender};
-use log::{debug, error, info, trace};
+use log::{error, info};
 use mavlink::ardupilotmega::MavMessage;
-use redis::{Commands, PubSub, RedisConnectionInfo};
 use std::{
     sync::{
         Arc,
@@ -80,12 +79,7 @@ impl ArdulinkConnection {
 
     pub async fn start_task(&mut self) -> Result<(), ArdulinkError> {
         let con_string = self.connection_string.clone();
-        let recv_channels = self.recv_channels.clone();
-        let transmit_channels = self.transmit_channels.clone();
         let should_stop = self.should_stop.clone();
-        let connection_type = self.connection_type.clone();
-        let redis = self.redis.clone();
-        let error_redis = redis.clone();
         let state = self.state.clone();
 
         let task_handle = task::spawn(async move {

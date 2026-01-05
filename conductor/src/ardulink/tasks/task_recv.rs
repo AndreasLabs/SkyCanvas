@@ -10,7 +10,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use log::{debug, error, info, trace};
+use log::{debug, error, info};
 use tokio::{task, time::{self, Duration}, task::JoinHandle};
 use serde_json;
 use redis::Commands;

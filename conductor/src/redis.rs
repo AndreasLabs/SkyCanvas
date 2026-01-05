@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use log::{debug, error, info, trace};
+use log::{debug, error, info};
 use mavlink::ardupilotmega::MavMessage;
 use redis::Commands;
 

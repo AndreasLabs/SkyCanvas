@@ -4,6 +4,7 @@ use crate::types::{light_color::ShowLightColor, position::ShowPosition};
 
 
 
+#[allow(dead_code)]
 pub struct ShowPoint{
     id: u32,
     position: ShowPosition,

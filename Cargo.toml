@@ -1,2 +1,3 @@
 [workspace]
+resolver = "2"
 members = ["conductor", "groundlink", "mcap_logger", "scenarios", "showkit"]

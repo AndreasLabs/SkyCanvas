@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use anyhow::Error;
 use futures_util::StreamExt;
-use log::{debug, error, info, trace, warn};
-use redis::{Commands, AsyncCommands};
+use log::{debug, error, info, warn};
+use redis::Commands;
 use tokio::{task, task::JoinHandle, sync::Mutex, time::{self, Duration}};
 use std::sync::atomic::{AtomicBool, Ordering};
 
