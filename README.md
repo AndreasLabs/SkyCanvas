@@ -11,14 +11,24 @@ Long exposure photographs with automated Ardupilot Quad(s).
 - 
 
 ## Docker
-
-## FoxGlove Live
+- Location of the docker compose and build files used
+- Has devcontainer
+- Has Services for:
+    - Ardupilot SIL
+    - Redis / Redis Insight
 
 ## GroundLink
+- Redis <-> WebSocket Bridge for WebClients
 
 ## MCAP Logger
+- Connects to Redis and logs to MCAP
+- Can be used with Foxglove for data viz
+- Phasing out in favor of Rerun
 
 ## Scenarios
+- Rust-based "Scenario" scripts that run commands and a given setup for SIL based testing
+- Scenarios are ran via extending a `Scenario` trait and defining what redis commands to send at what `t` time
+- Setup of connections to redis are handled be the parent runner.
 
 ## Scripts
 
@@ -35,7 +45,7 @@ Long exposure photographs with automated Ardupilot Quad(s).
 
 ## TODO
 - [ ] Clean up Repo
-    - [ ] Get full repo to build
+    - [x] Get full repo to build
     - [ ] Update README w/ components
 - [ ] Showkit Importer
     - [ ] Basic ShowKit Grid Demo
