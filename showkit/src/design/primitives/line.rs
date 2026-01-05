@@ -1,3 +1,5 @@
+use crate::design::primitives::point::ShowPoint;
+
 
 
 pub struct ShowLine{
@@ -7,7 +9,7 @@ pub struct ShowLine{
 
 impl ShowLine{
     pub fn new(points: Vec<ShowPoint>) -> Self{
-        let id = rand::thread_rng().gen_range(0..u32::MAX);
+        let id = rand::random_range(0..u32::MAX);
         Self{id, points}    
     }
 }

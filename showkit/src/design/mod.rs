@@ -1,3 +1,5 @@
+use crate::design::primitives::ShowPrimitive;
+
 pub mod primitives;
 
 pub struct ShowDesign{
