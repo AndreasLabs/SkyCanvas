@@ -1,0 +1,35 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+fileGroups:
+  docker:
+  - 'Dockerfile'
+
+tasks:
+  build:
+    script: 'docker build -t @meta(tag):latest -f @files(docker) .'
+    options:
+      runFromWorkspaceRoot: true
+    inputs:
+    - '@files(docker)'
+
+  run:
+    script: 'docker run -d @meta(tag):latest'
+    options:
+      runFromWorkspaceRoot: true
+    inputs:
+    - '@files(docker)'
+
+  dev:
+    script: 'docker run --net=host @meta(tag):latest'
+    options:
+      runFromWorkspaceRoot: true
+      interactive: true
+    deps:
+    - '~:build'
+    inputs:
+    - '@files(docker)'
+
+  stop:
+    script: 'docker kill $(docker ps -q)'
+    description: 'Stop all running containers'
+    options:
+      runFromWorkspaceRoot: true

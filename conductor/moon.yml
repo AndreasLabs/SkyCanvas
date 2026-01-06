@@ -4,3 +4,7 @@ project:
   description: 'Conductor for SkyCanvas'
   metadata:
     tag: 'conductor'
+
+tags:
+- 'rust'
+- 'docker'
