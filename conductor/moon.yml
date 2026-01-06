@@ -1,0 +1,6 @@
+language: "rust"
+project:
+  name: 'conductor'
+  description: 'Conductor for SkyCanvas'
+  metadata:
+    tag: 'conductor'

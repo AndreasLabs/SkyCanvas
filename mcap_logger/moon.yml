@@ -1,0 +1,7 @@
+language: "rust"
+project:
+  name: 'mcap_logger'
+  description: 'MCAP Logger for SkyCanvas'
+  metadata:
+    tag: 'mcap_logger'
+

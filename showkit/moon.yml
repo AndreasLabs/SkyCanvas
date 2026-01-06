@@ -1,0 +1,7 @@
+language: "rust"
+project:
+  name: 'showkit'
+  description: 'ShowKit for SkyCanvas'
+  metadata:
+    tag: 'showkit'
+

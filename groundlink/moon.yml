@@ -1,0 +1,7 @@
+language: "rust"
+project:
+  name: 'groundlink'
+  description: 'GroundLink for SkyCanvas'
+  metadata:
+    tag: 'groundlink'
+

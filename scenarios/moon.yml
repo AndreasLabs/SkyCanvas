@@ -1,0 +1,7 @@
+language: "rust"
+project:
+  name: 'scenarios'
+  description: 'Scenarios for SkyCanvas'
+  metadata:
+    tag: 'scenarios'
+
