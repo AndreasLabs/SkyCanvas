@@ -1,0 +1,15 @@
+services:
+  ardupilot-sil:
+    build:
+      context: .
+      dockerfile: ../ardupilot_sil/Dockerfile
+    volumes:
+      - ../ardupilot_sil/:/ardupilot
+    container_name: ardupilot-sil
+    network_mode: host
+    restart: 'always'
+    environment:
+    - COUNT=${NUMCOPTERS:-3}
+    
+
+
