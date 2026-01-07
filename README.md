@@ -62,7 +62,7 @@ Long exposure photographs with automated Ardupilot Quad(s).
 ### Notes
 
 ### TODO
-- [ ] Setup base application w/ task loop
-- [ ] Setup Ardupulot connection w/ SIL Container
-- [ ] Setup heartbeat task for Ardupilot using task data (message based)
+- [x] Setup base application w/ task loop
+- [x] Setup Ardupulot connection w/ SIL Container
+- [x] Setup heartbeat task for Ardupilot 
 - [ ] Setup rerun w/ hello world logging of ardupilot data
