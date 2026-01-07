@@ -5,7 +5,7 @@ from quad_app.ardupilot.ardupilot_connection import ArdupilotConnection
 class QuadOptions:
     def __init__(self):
         logging.info("QuadOptions // Initializing QuadOptions")
-        self.connection_string = "tcp:127.0.0.1:5760"
+        self.connection_string = "tcpout://127.0.0.1:5760"
 
     def set_connection_string(self, connection_string: str):
         logging.info(f"QuadOptions // Setting connection string to {connection_string}")
@@ -18,10 +18,15 @@ class Quad:
         self.options = options
         self.connection = ArdupilotConnection(options.connection_string)
 
-    def init(self):
+    async def init(self):
         logging.info("Quad // Initializing Quad")
-        self.connection.connect()
-    
-    def run(self):
+        await self.connection.connect()
+
+    async def run(self):
         logging.info("Quad // Running Quad")
-        pass
+        await self.connection.wait_for_ready()
+        await self.connection.arm()
+        await self.connection.takeoff()
+        await self.connection.goto_location(0, 0, 10, 0)
+        await self.connection.land()
+        await self.connection.disarm()
