@@ -1,13 +1,19 @@
 import logging
+import json
 from mavsdk import System as MavSystem
 import asyncio
 import rerun as rr
+from datetime import datetime
 class QuadOptions:
     def __init__(self):
         self.connection_string = "tcpout://127.0.0.1:5760"
+        self.telemetry_rate_hz = 5.0
 
     def set_connection_string(self, connection_string: str):
         self.connection_string = connection_string
+    
+    def set_telemetry_rate_hz(self, rate_hz: float):
+        self.telemetry_rate_hz = rate_hz
 
 
 class Quad:
@@ -27,6 +33,17 @@ class Quad:
             if state.is_connected:
                 logging.info("Quad // Connected to drone")
                 break
+        
+        # Request telemetry streams from ArduPilot (required for ArduPilot SITL/SIL)
+        logging.info(f"Quad // Requesting telemetry streams at {self.options.telemetry_rate_hz} Hz")
+        try:
+            await self.mav_system.telemetry.set_rate_position(self.options.telemetry_rate_hz)
+            await self.mav_system.telemetry.set_rate_battery(self.options.telemetry_rate_hz)
+            await self.mav_system.telemetry.set_rate_in_air(self.options.telemetry_rate_hz)
+            logging.info("Quad // Telemetry streams requested successfully")
+        except Exception as e:
+            logging.warning(f"Quad // Error requesting telemetry streams: {e}")
+            logging.info("Quad // Continuing anyway...")
 
     async def wait_for_ready(self):
         """Wait for drone to be ready for flight"""
@@ -77,46 +94,87 @@ class Quad:
     async def run(self):
         """Execute a simple test flight"""
         logging.info("Quad // Running test flight")
-        asyncio.create_task(self.start_logging(0.1))
-        await self.wait_for_ready()
-        await self.arm()
-        await self.takeoff()
-        await self.goto_location(0, 0, 10, 0)
-        await self.land()
-        await self.disarm()
-    
-    async def get_pending_messages(self, timeout: float = 0.1):
-        """Get pending messages"""
-        #logging.info("Quad // Getting pending messages")
-        try:
-            message = await asyncio.wait_for(
-                self.mav_system.telemetry.status_text().__anext__(), 
-                timeout=timeout
-            )
-            return [message]  # Return as a list since the caller expects to iterate
-        except asyncio.TimeoutError:
-            # No new status text available, continue
-            return []
-        except StopAsyncIteration:
-            # No more status text available
-            return []
-    # Starts up a new looping async task that logs telemetry data to rerun
-    async def start_logging(self, rate: float = 0.5):
-        """Start logging"""
-        logging.info("Quad // Starting logging task loop")
-        tick_count = 0
-        while True:
-            await self.log_tick(rate, tick_count)
-            tick_count += 1
-            await asyncio.sleep(rate)
-            
-    async def log_tick(self, rate: float = 0.5, tick_count: int = 0):
-        """Log a tick"""
-       # logging.info("Quad // Logging tick")
         
-        messages = await self.get_pending_messages(rate)
-        for message in messages:
-            logging.info(f" ==== ARDUPILOT // Message: {message}")
-            rr.set_time("log_tick", sequence=tick_count)
-            rr.log("ardupilot/status_text", rr.TextLog(message.text, level=rr.TextLogLevel.INFO))
+        # Start telemetry logging tasks
+        _tasks = [
+            asyncio.create_task(self.log_status_text()),
+            asyncio.create_task(self.log_position()),
+            asyncio.create_task(self.log_battery()),
+            asyncio.create_task(self.log_in_air()),
+        ]
+        exit_event = asyncio.Event()
+        await exit_event.wait()
+
+    
+    async def log_status_text(self):
+        """Log status text messages from the drone"""
+        try:
+            logging.info("Quad // Starting status text logging")
+            async for message in self.mav_system.telemetry.status_text():
+                try:
+                    logging.info(f" ==== ARDUPILOT // Message: {message}")
+                    date_time = datetime.now()
+                    rr.set_time("realtime", timestamp=date_time)
+                    rr.log("ardupilot/status_text", rr.TextLog(message.text, level=rr.TextLogLevel.INFO))
+                except Exception as e:
+                    logging.error(f"Error in log_status_text iteration: {e}", exc_info=True)
+        except Exception as e:
+            logging.error(f"Fatal error in log_status_text: {e}", exc_info=True)
+            raise
+    
+    async def log_position(self):
+        """Log position telemetry"""
+        try:
+            logging.info("Quad // Starting position logging")
+            async for position in self.mav_system.telemetry.position():
+                try:
+                    date_time = datetime.now()
+                    rr.set_time("realtime", timestamp=date_time)
+                    pos_data = {
+                        "latitude_deg": position.latitude_deg,
+                        "longitude_deg": position.longitude_deg,
+                        "absolute_altitude_m": position.absolute_altitude_m,
+                        "relative_altitude_m": position.relative_altitude_m,
+                    }
+                    rr.log("drone/position", rr.TextLog(json.dumps(pos_data)))
+                except Exception as e:
+                    logging.error(f"Error in log_position iteration: {e}", exc_info=True)
+        except Exception as e:
+            logging.error(f"Fatal error in log_position: {e}", exc_info=True)
+            raise
+    
+    async def log_battery(self):
+        """Log battery telemetry"""
+        try:
+            logging.info("Quad // Starting battery logging")
+            async for battery in self.mav_system.telemetry.battery():
+                try:
+                    date_time = datetime.now()
+                    rr.set_time("realtime", timestamp=date_time)
+                    bat_data = {
+                        "remaining_percent": battery.remaining_percent,
+                        "voltage_v": battery.voltage_v,
+                    }
+                    rr.log("drone/battery", rr.TextLog(json.dumps(bat_data)))
+                except Exception as e:
+                    logging.error(f"Error in log_battery iteration: {e}", exc_info=True)
+        except Exception as e:
+            logging.error(f"Fatal error in log_battery: {e}", exc_info=True)
+            raise
+    
+    async def log_in_air(self):
+        """Log in-air status"""
+        try:
+            logging.info("Quad // Starting in-air logging")
+            async for in_air in self.mav_system.telemetry.in_air():
+                try:
+                    date_time = datetime.now()
+                    rr.set_time("realtime", timestamp=date_time)
+                    air_data = {"in_air": in_air}
+                    rr.log("drone/in_air", rr.TextLog(json.dumps(air_data)))
+                except Exception as e:
+                    logging.error(f"Error in log_in_air iteration: {e}", exc_info=True)
+        except Exception as e:
+            logging.error(f"Fatal error in log_in_air: {e}", exc_info=True)
+            raise
         

@@ -1,19 +1,30 @@
 import logging
+import asyncio
 from quad_app.quad import Quad, QuadOptions
 from quad_app.log_rerun import LogRerun
+from quad_app.docker_manager import DockerManager
+
 
 class QuadApp:
-    def __init__(self):
+    def __init__(self, ensure_fresh_sitl: bool = True):
         logging.info("QuadApp // Initializing")
         self.quad = Quad(QuadOptions())
         self.log_rerun = LogRerun("quad_app")
-
+        self.docker_manager = DockerManager()
+        self.ensure_fresh_sitl = ensure_fresh_sitl
 
     async def run(self):
         logging.info("QuadApp // Starting")
-        await self.log_rerun.init()
 
+        # Ensure SITL container is running fresh
+        if self.ensure_fresh_sitl:
+            self.docker_manager.ensure_fresh()
+            # Give SITL a moment to initialize after restart
+            logging.info("QuadApp // Waiting for SITL to initialize...")
+            await asyncio.sleep(5)
+
+        await self.log_rerun.init()
         await self.quad.connect()
-        
-       # await self.log_rerun.smoketest_log()
+
+        # await self.log_rerun.smoketest_log()
         await self.quad.run()
