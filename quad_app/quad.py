@@ -113,9 +113,8 @@ class Quad:
             async for message in self.mav_system.telemetry.status_text():
                 try:
                     logging.info(f" ==== ARDUPILOT // Message: {message}")
-                    date_time = datetime.now()
-                    rr.set_time("realtime", timestamp=date_time)
-                    rr.log("ardupilot/status_text", rr.TextLog(message.text, level=rr.TextLogLevel.INFO))
+                    self.log_time_now()
+                    rr.log("mavlink/status_text", rr.TextLog(message.text, level=rr.TextLogLevel.INFO))
                 except Exception as e:
                     logging.error(f"Error in log_status_text iteration: {e}", exc_info=True)
         except Exception as e:
@@ -123,44 +122,26 @@ class Quad:
             raise
     
     async def log_position(self):
-        """Log position telemetry"""
-        try:
-            logging.info("Quad // Starting position logging")
-            async for position in self.mav_system.telemetry.position():
-                try:
-                    date_time = datetime.now()
-                    rr.set_time("realtime", timestamp=date_time)
-                    pos_data = {
-                        "latitude_deg": position.latitude_deg,
-                        "longitude_deg": position.longitude_deg,
-                        "absolute_altitude_m": position.absolute_altitude_m,
-                        "relative_altitude_m": position.relative_altitude_m,
-                    }
-                    rr.log("drone/position", rr.TextLog(json.dumps(pos_data)))
-                except Exception as e:
-                    logging.error(f"Error in log_position iteration: {e}", exc_info=True)
-        except Exception as e:
-            logging.error(f"Fatal error in log_position: {e}", exc_info=True)
-            raise
+        async for position in self.mav_system.telemetry.position():
+            # Log the altitudes as scalars
+            rr.log("mavlink/position/absolute_altitude_m", rr.Scalars(position.absolute_altitude_m))
+            rr.log("mavlink/position/relative_altitude_m", rr.Scalars(position.relative_altitude_m))
+            
+            # Log latitude_deg and longitude_deg as Geo
+            rr.log("mavlink/position/lat_lon", rr.GeoPoints(lat_lon=[position.latitude_deg, position.longitude_deg]))
     
+    def log_time_now(self):
+        """Set the current time for rerun logging"""
+        date_time = datetime.now()
+        rr.set_time("realtime", timestamp=date_time)
+
     async def log_battery(self):
-        """Log battery telemetry"""
-        try:
-            logging.info("Quad // Starting battery logging")
-            async for battery in self.mav_system.telemetry.battery():
-                try:
-                    date_time = datetime.now()
-                    rr.set_time("realtime", timestamp=date_time)
-                    bat_data = {
-                        "remaining_percent": battery.remaining_percent,
-                        "voltage_v": battery.voltage_v,
-                    }
-                    rr.log("drone/battery", rr.TextLog(json.dumps(bat_data)))
-                except Exception as e:
-                    logging.error(f"Error in log_battery iteration: {e}", exc_info=True)
-        except Exception as e:
-            logging.error(f"Fatal error in log_battery: {e}", exc_info=True)
-            raise
+        async for battery in self.mav_system.telemetry.battery():
+             self.log_time_now()
+             #remaining_percent
+             rr.log("mavlink/battery/remaining_percent", rr.Scalars(battery.remaining_percent))
+             #voltage_v
+             rr.log("mavlink/battery/voltage_v", rr.Scalars(battery.voltage_v))
     
     async def log_in_air(self):
         """Log in-air status"""
@@ -168,8 +149,8 @@ class Quad:
             logging.info("Quad // Starting in-air logging")
             async for in_air in self.mav_system.telemetry.in_air():
                 try:
-                    date_time = datetime.now()
-                    rr.set_time("realtime", timestamp=date_time)
+                    self.log_time_now()
+                    
                     air_data = {"in_air": in_air}
                     rr.log("drone/in_air", rr.TextLog(json.dumps(air_data)))
                 except Exception as e:
