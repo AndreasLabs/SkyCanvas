@@ -6,5 +6,6 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "mavsdk>=3.10.2",
+    "rerun-sdk>=0.28.2",
 ]
 
