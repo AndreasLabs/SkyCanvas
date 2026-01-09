@@ -1,5 +1,6 @@
 import logging
 import json
+from typing import Any
 from mavsdk import System as MavSystem
 import asyncio
 import rerun as rr
@@ -37,39 +38,49 @@ class Quad:
         # Request telemetry streams from ArduPilot (required for ArduPilot SITL/SIL)
         logging.info(f"Quad // Requesting telemetry streams at {self.options.telemetry_rate_hz} Hz")
         try:
+            await self.mav_system.telemetry.set_rate_health(self.options.telemetry_rate_hz)  # Includes EKF status
             await self.mav_system.telemetry.set_rate_position(self.options.telemetry_rate_hz)
             await self.mav_system.telemetry.set_rate_battery(self.options.telemetry_rate_hz)
             await self.mav_system.telemetry.set_rate_in_air(self.options.telemetry_rate_hz)
-            logging.info("Quad // Telemetry streams requested successfully")
+            await self.mav_system.telemetry.set_rate_gps_info(self.options.telemetry_rate_hz)  # GPS satellite info
+            logging.info("Quad // Telemetry streams requested successfully (including EKF status)")
         except Exception as e:
             logging.warning(f"Quad // Error requesting telemetry streams: {e}")
             logging.info("Quad // Continuing anyway...")
 
     async def wait_for_ready(self):
-        """Wait for drone to be ready for flight"""
+        """Wait for drone to be ready for flight - includes EKF initialization checks"""
         logging.info("Quad // Waiting for drone to be ready")
         
 
-        
-        # Wait for global position
-        logging.info("Quad // Waiting for global position estimate")
+        # Wait for EKF to initialize with local and global position estimates
+        logging.info("Quad // Waiting for EKF initialization (local & global position)")
         async for health in self.mav_system.telemetry.health():
-            if health.is_global_position_ok and health.is_home_position_ok:
-                logging.info("Quad // Global position OK")
+            self.log_dict("mavlink/health/raw", health)
+            if health.is_local_position_ok and health.is_global_position_ok and health.is_home_position_ok:
+                logging.info("Quad // EKF Ready - Local position OK, Global position OK, Home position OK")
                 break
         
-        # Fetch home altitude
-        async for terrain_info in self.mav_system.telemetry.home():
-            self.home_altitude = terrain_info.absolute_altitude_m
-            logging.info(f"Quad // Home altitude: {self.home_altitude}m")
-            break
-        
+        # Wait longer for EKF variance to stabilize after initial lock
+        logging.info("Quad // Waiting 15s for EKF variance to stabilize...")
+        await asyncio.sleep(20)
+
         logging.info("Quad // Ready for flight")
 
     async def arm(self):
         """Arm the drone"""
         logging.info("Quad // Arming")
         await self.mav_system.action.arm()
+        
+        # Wait for armed confirmatio
+        logging.info("Quad // Waiting for armed confirmation")
+        async for armed in self.mav_system.telemetry.armed():
+            if armed:
+                logging.info("Quad // Armed")
+                break
+            else:
+                logging.info("Quad // Not armed")
+                await asyncio.sleep(1)
 
     async def takeoff(self):
         """Take off to default altitude"""
@@ -100,11 +111,32 @@ class Quad:
             asyncio.create_task(self.log_status_text()),
             asyncio.create_task(self.log_position()),
             asyncio.create_task(self.log_battery()),
+            asyncio.create_task(self.log_gps_info()),
             asyncio.create_task(self.log_in_air()),
+            asyncio.create_task(self.fly_mission()),
         ]
+        
+        
+
         exit_event = asyncio.Event()
         await exit_event.wait()
 
+    
+    async def fly_mission(self):
+        # Run our current desired actions after drone is ready.
+        # currently just wait for ready, arm, takeoff, land, disarm
+        logging.info("Quad // Flying mission")
+        await self.wait_for_ready()
+        
+        await self.arm()
+        await self.takeoff()
+        # Wait for 10 seconds
+        await asyncio.sleep(10)
+        # Land
+        logging.info("Quad // Landing")
+        await self.land()
+        # Wait for 10 seconds
+        await self.disarm()
     
     async def log_status_text(self):
         """Log status text messages from the drone"""
@@ -135,13 +167,54 @@ class Quad:
         date_time = datetime.now()
         rr.set_time("realtime", timestamp=date_time)
 
+    def log_dict(self, path: str, obj: Any):
+        """Log a python object as a pretty JSON string in a TextDocument"""
+        self.log_time_now()
+        try:
+            # Handle objects that might not be directly serializable
+            def default_converter(o):
+                if hasattr(o, "__dict__"):
+                    return o.__dict__
+                return str(o)
+
+            pretty_json = json.dumps(obj, default=default_converter, indent=2)
+            markdown_content = f"```json\n{pretty_json}\n```"
+            
+            rr.log(
+                path,
+                rr.TextDocument(
+                    markdown_content,
+                    media_type=rr.MediaType.MARKDOWN,
+                ),
+            )
+        except Exception as e:
+            logging.error(f"Error logging dict to {path}: {e}")
+
     async def log_battery(self):
         async for battery in self.mav_system.telemetry.battery():
              self.log_time_now()
+             self.log_dict("mavlink/battery/raw", battery)
              #remaining_percent
              rr.log("mavlink/battery/remaining_percent", rr.Scalars(battery.remaining_percent))
              #voltage_v
              rr.log("mavlink/battery/voltage_v", rr.Scalars(battery.voltage_v))
+    
+    async def log_gps_info(self):
+        """Log GPS information including satellite count and fix type"""
+        try:
+            logging.info("Quad // Starting GPS info logging")
+            async for gps_info in self.mav_system.telemetry.gps_info():
+                try:
+                    self.log_time_now()
+                    # Log satellite count
+                    rr.log("mavlink/gps/num_satellites", rr.Scalars(gps_info.num_satellites))
+                    # Log fix type (0=none, 1=no fix, 2=2D, 3=3D, 4=DGPS, 5=RTK float, 6=RTK fixed)
+                    rr.log("mavlink/gps/fix_type", rr.Scalars(gps_info.fix_type))
+                except Exception as e:
+                    logging.error(f"Error in log_gps_info iteration: {e}", exc_info=True)
+        except Exception as e:
+            logging.error(f"Fatal error in log_gps_info: {e}", exc_info=True)
+            raise
     
     async def log_in_air(self):
         """Log in-air status"""

@@ -16,7 +16,6 @@
 services:
   ardupilot-sitl:
     image: radarku/ardupilot-sitl
-    platform: linux/amd64
     tty: true
     ports:
       - 5760:5760
@@ -24,10 +23,10 @@ services:
     restart: 'always'
     environment:
       - INSTANCE=0
-     # - LAT=42.3898
-    #  - LON=-71.1476
+      - LAT=34.556685079351766
+      - LON=-115.7423058300774
     #  - ALT=14
    #   - DIR=270
   #    - MODEL=+
-      - SPEEDUP=2
+      - SPEEDUP=4
       - VEHICLE=ArduCopter
