@@ -109,7 +109,7 @@ uv sync
 - [ ] Move logging to own class (reached file length limit)
 - [x] LED Control w/ Viz (mock)]
 - [x] 3D Viz
-- [ ] Long Exposure viz (2d and 3d)
+- [x] Long Exposure viz (2d and 3d)
 - [ ] Follow Waypoint path
 - [ ] Track color in waypoints
 - [ ] Add Low Poly Mesh desert floor / grid
