@@ -104,4 +104,10 @@ uv sync
 - [x] Setup base application w/ task loop
 - [x] Setup Ardupulot connection w/ SIL Container
 - [x] Setup heartbeat task for Ardupilot 
-- [ ] Setup rerun w/ hello world logging of ardupilot data
+- [x] Setup rerun w/ hello world logging of ardupilot data
+- [x] SIL Hop w/ Viz
+- [ ] LED Control w/ Viz (mock)]
+- [ ] 3D Viz
+- [ ] Long Exposure viz (2d and 3d)
+- [ ] Follow Waypoint path
+- [ ] Track color in waypoints
