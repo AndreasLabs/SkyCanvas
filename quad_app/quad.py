@@ -5,10 +5,12 @@ from mavsdk import System as MavSystem
 import asyncio
 import rerun as rr
 from datetime import datetime
+from quad_app.quad_rerun import QuadRerun
+from quad_app.systems import LED
 class QuadOptions:
     def __init__(self):
         self.connection_string = "tcpout://127.0.0.1:5760"
-        self.telemetry_rate_hz = 5.0
+        self.telemetry_rate_hz = 25.0
 
     def set_connection_string(self, connection_string: str):
         self.connection_string = connection_string
@@ -23,6 +25,10 @@ class Quad:
         self.options = options
         self.mav_system = None
         self.home_altitude = None
+        self.quad_rerun = QuadRerun("quad_app")
+        self.led = LED()
+
+
 
     async def connect(self):
         """Connect to the MAVLink system"""
@@ -105,6 +111,7 @@ class Quad:
 
     async def run(self):
         """Execute a simple test flight"""
+        await self.quad_rerun.init()
         logging.info("Quad // Running test flight")
         
         # Start telemetry logging tasks
@@ -115,6 +122,7 @@ class Quad:
             asyncio.create_task(self.log_battery()),
             asyncio.create_task(self.log_gps_info()),
             asyncio.create_task(self.log_in_air()),
+            asyncio.create_task(self.log_led()),
             asyncio.create_task(self.fly_mission()),
         ]
         
@@ -131,13 +139,32 @@ class Quad:
         await self.wait_for_ready()
         
         await self.arm()
+        
+        # Red LED for takeoff (hop)
+        logging.info("Quad // Setting LED to RED for takeoff")
+        self.led.rgb = [1.0, 0.0, 0.0]  # Red
+        self.led.is_on = True
+        
         await self.takeoff()
+        
+        # Green LED while flying/hovering
+        logging.info("Quad // Setting LED to GREEN while flying")
+        self.led.rgb = [0.0, 1.0, 0.0]  # Green
+        
         # Wait for 10 seconds
         await asyncio.sleep(10)
-        # Land
-        logging.info("Quad // Landing")
+        
+        # Blue LED for landing
+        logging.info("Quad // Setting LED to BLUE for landing")
+        self.led.rgb = [0.0, 0.0, 1.0]  # Blue
         await self.land()
+        
         # Wait for 10 seconds
+        await asyncio.sleep(10)
+        
+        # Turn off LED after disarm
+        logging.info("Quad // Turning LED OFF")
+        self.led.is_on = False
         await self.disarm()
     
     async def log_status_text(self):
@@ -182,6 +209,14 @@ class Quad:
                     rr.log("mavlink/velocity_ned/north_m_s", rr.Scalars(position_ned.velocity.north_m_s))
                     rr.log("mavlink/velocity_ned/east_m_s", rr.Scalars(position_ned.velocity.east_m_s))
                     rr.log("mavlink/velocity_ned/down_m_s", rr.Scalars(position_ned.velocity.down_m_s))
+                    
+                    # Log 3d point
+                    color = self.led.to_rerun_color()
+                    position = [position_ned.position.north_m, position_ned.position.east_m, -position_ned.position.down_m]
+                    rr.log("mavlink/position_ned/points", rr.Points3D([position], radii=0.2, labels=["Quad"], show_labels=True, colors=[color]))
+     
+
+
                 except Exception as e:
                     logging.error(f"Error in log_position_ned iteration: {e}", exc_info=True)
         except Exception as e:
@@ -235,7 +270,7 @@ class Quad:
                     # Log satellite count
                     rr.log("mavlink/gps/num_satellites", rr.Scalars(gps_info.num_satellites))
                     # Log fix type (0=none, 1=no fix, 2=2D, 3=3D, 4=DGPS, 5=RTK float, 6=RTK fixed)
-                    rr.log("mavlink/gps/fix_type", rr.Scalars(gps_info.fix_type))
+                    #rr.log("mavlink/gps/fix_type", rr.Scalars(int(gps_info.fix_type)))
                 except Exception as e:
                     logging.error(f"Error in log_gps_info iteration: {e}", exc_info=True)
         except Exception as e:
@@ -256,5 +291,28 @@ class Quad:
                     logging.error(f"Error in log_in_air iteration: {e}", exc_info=True)
         except Exception as e:
             logging.error(f"Fatal error in log_in_air: {e}", exc_info=True)
+            raise
+    
+    async def log_led(self):
+        """Log LED state to Rerun"""
+        try:
+            logging.info("Quad // Starting LED logging")
+            while True:
+                try:
+                    self.log_time_now()
+                    
+                    # Log LED state as JSON
+                    led_data = {
+                        "rgb": self.led.rgb,
+                        "brightness": self.led.brightness,
+                        "is_on": self.led.is_on
+                    }
+                    self.log_dict("led/state", led_data)
+                    
+                    await asyncio.sleep(0.1)  # Log at ~10Hz
+                except Exception as e:
+                    logging.error(f"Error in log_led iteration: {e}", exc_info=True)
+        except Exception as e:
+            logging.error(f"Fatal error in log_led: {e}", exc_info=True)
             raise
         

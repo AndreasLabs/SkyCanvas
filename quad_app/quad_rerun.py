@@ -1,19 +1,19 @@
 import rerun as rr
 import numpy as np
 import logging
-class LogRerun:
+class QuadRerun:
     def __init__(self, name: str):
         self.name = name
         self.initialized = False
     async def init(self):
-        logging.info(f"LogRerun // Initializing {self.name}")
+        logging.info(f"QuadRerun // Initializing {self.name}")
         rr.init(self.name, spawn=True)
         self.initialized = True
 
     async def smoketest_log(self):
       
         if not self.initialized:
-            logging.warning(f"LogRerun // Not initialized, initializing {self.name}")
+            logging.warning(f"QuadRerun // Not initialized, initializing {self.name}")
             await self.init()
         SIZE = 10
 
