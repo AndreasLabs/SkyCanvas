@@ -63,22 +63,17 @@ wheels = [
 
 [[package]]
 name = "mavsdk"
-version = "3.10.2"
-source = { registry = "https://pypi.org/simple" }
+version = "3.10.2.post20+gfc56d93"
+source = { directory = "external/mavsdk-python" }
 dependencies = [
     { name = "grpcio" },
     { name = "protobuf" },
 ]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/17/df6ea54e271d5184df744b972b03db44988b5c099551caae1b0e59b0e206/mavsdk-3.10.2-py3-none-linux_armv6l.whl", hash = "sha256:52fe83a0961eb24d9b98ff1c786483270c1c42d2bbff661a3a646e9d0955c308", size = 16257858, upload-time = "2025-09-10T03:04:00.383Z" },
-    { url = "https://files.pythonhosted.org/packages/f8/2c/321e17b883207802fadc28ae96e8e03ce948b2e9579bec4ab7cc51d0ae2e/mavsdk-3.10.2-py3-none-linux_armv7l.whl", hash = "sha256:37bc9ed997d7119298e0e2baca374d9d0050f2a044d8ac9dbae96d7245efd136", size = 16257791, upload-time = "2025-09-10T03:04:09.04Z" },
-    { url = "https://files.pythonhosted.org/packages/a7/15/1ab8d0e3029dcb82e378b65df39c6e73c77339eed47baf83d691ffe71c21/mavsdk-3.10.2-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:d53d001d456e79c9d8311025464c1e8f306a274a9ddce1a23baecf4e41e464a2", size = 12262138, upload-time = "2025-09-10T03:04:06.521Z" },
-    { url = "https://files.pythonhosted.org/packages/cc/a5/e547e8f4979efba695513ba551e03211bfc4a615828e8ce854b2a07b88d9/mavsdk-3.10.2-py3-none-macosx_11_0_arm64.whl", hash = "sha256:84ba8812fa575f85c69f15e372a7b92c044fe893aee2a1c3eaca5308963c7d83", size = 12143425, upload-time = "2025-09-10T03:03:57.902Z" },
-    { url = "https://files.pythonhosted.org/packages/df/80/d2ce06bb5df368bd9a12ecadc544e889a24e1536e6650e213967e13c4e63/mavsdk-3.10.2-py3-none-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:9566882777e3b14489ff83c7d99632f60991248dd9e264e2b046f1ba3f2d2119", size = 14830638, upload-time = "2025-09-10T03:04:33.877Z" },
-    { url = "https://files.pythonhosted.org/packages/ca/fe/88af6d38376910e3e017200f3ef91017d0b012e4be0e810f8f83c845a586/mavsdk-3.10.2-py3-none-manylinux2014_aarch64.whl", hash = "sha256:82f339300217a8c7ae62377b0a223a4c4ca06f2ec021cf77cc7d7264a2bbc8a6", size = 17850554, upload-time = "2025-09-10T03:03:52.907Z" },
-    { url = "https://files.pythonhosted.org/packages/07/26/1067467acc5c82981a7f34d4dc45a538c7f5ca3f4ff5739f07b9e48e0962/mavsdk-3.10.2-py3-none-win32.whl", hash = "sha256:08a96fc35f805e73e32793948cefe4aa7f06e7754fc29a5b517a646b671f9470", size = 10094373, upload-time = "2025-09-10T03:04:29.559Z" },
-    { url = "https://files.pythonhosted.org/packages/c0/b9/9eac70377e34b39e8e8216a3661e1940db971896d22e8289db14c4ffac83/mavsdk-3.10.2-py3-none-win_amd64.whl", hash = "sha256:338f7c07fce3b81b71241bb69bc9a74a59c1f0365cdee6616d10c0f392cdefe1", size = 10094373, upload-time = "2025-09-10T03:04:25.181Z" },
-    { url = "https://files.pythonhosted.org/packages/36/bf/55cc1b6aa709dfea9893d2efa1f56321468ad54c1d1754c1f6e66eafe200/mavsdk-3.10.2-py3-none-win_arm64.whl", hash = "sha256:e14f9af296af0a2145e87b62de8c93cbecaa54a90999301d69adcf23c7de989c", size = 10094373, upload-time = "2025-09-10T03:04:29.809Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "grpcio", specifier = ">=1.64.1" },
+    { name = "protobuf", specifier = ">=6.32.1" },
 ]
 
 [[package]]
@@ -398,7 +393,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mavsdk", specifier = ">=3.10.2" },
+    { name = "mavsdk", directory = "external/mavsdk-python" },
     { name = "python-on-whales", specifier = ">=0.75.0" },
     { name = "rerun-sdk", specifier = ">=0.28.2" },
 ]

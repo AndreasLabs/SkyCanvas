@@ -40,6 +40,7 @@ class Quad:
         try:
             await self.mav_system.telemetry.set_rate_health(self.options.telemetry_rate_hz)  # Includes EKF status
             await self.mav_system.telemetry.set_rate_position(self.options.telemetry_rate_hz)
+            await self.mav_system.telemetry.set_rate_position_velocity_ned(self.options.telemetry_rate_hz)
             await self.mav_system.telemetry.set_rate_battery(self.options.telemetry_rate_hz)
             await self.mav_system.telemetry.set_rate_in_air(self.options.telemetry_rate_hz)
             await self.mav_system.telemetry.set_rate_gps_info(self.options.telemetry_rate_hz)  # GPS satellite info
@@ -110,6 +111,7 @@ class Quad:
         _tasks = [
             asyncio.create_task(self.log_status_text()),
             asyncio.create_task(self.log_position()),
+            asyncio.create_task(self.log_position_ned()),
             asyncio.create_task(self.log_battery()),
             asyncio.create_task(self.log_gps_info()),
             asyncio.create_task(self.log_in_air()),
@@ -155,12 +157,36 @@ class Quad:
     
     async def log_position(self):
         async for position in self.mav_system.telemetry.position():
+            self.log_time_now()
+            self.log_dict("mavlink/position/raw", position)
             # Log the altitudes as scalars
             rr.log("mavlink/position/absolute_altitude_m", rr.Scalars(position.absolute_altitude_m))
             rr.log("mavlink/position/relative_altitude_m", rr.Scalars(position.relative_altitude_m))
             
             # Log latitude_deg and longitude_deg as Geo
             rr.log("mavlink/position/lat_lon", rr.GeoPoints(lat_lon=[position.latitude_deg, position.longitude_deg]))
+    
+    async def log_position_ned(self):
+        """Log local position in NED (North-East-Down) coordinates"""
+        try:
+            logging.info("Quad // Starting local position NED logging")
+            async for position_ned in self.mav_system.telemetry.position_velocity_ned():
+                try:
+                    self.log_time_now()
+                    self.log_dict("mavlink/position_ned/raw", position_ned)
+                    # Log NED position coordinates as scalars
+                    rr.log("mavlink/position_ned/north_m", rr.Scalars(position_ned.position.north_m))
+                    rr.log("mavlink/position_ned/east_m", rr.Scalars(position_ned.position.east_m))
+                    rr.log("mavlink/position_ned/down_m", rr.Scalars(position_ned.position.down_m))
+                    # Log NED velocity coordinates as scalars
+                    rr.log("mavlink/velocity_ned/north_m_s", rr.Scalars(position_ned.velocity.north_m_s))
+                    rr.log("mavlink/velocity_ned/east_m_s", rr.Scalars(position_ned.velocity.east_m_s))
+                    rr.log("mavlink/velocity_ned/down_m_s", rr.Scalars(position_ned.velocity.down_m_s))
+                except Exception as e:
+                    logging.error(f"Error in log_position_ned iteration: {e}", exc_info=True)
+        except Exception as e:
+            logging.error(f"Fatal error in log_position_ned: {e}", exc_info=True)
+            raise
     
     def log_time_now(self):
         """Set the current time for rerun logging"""

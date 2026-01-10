@@ -1,7 +1,46 @@
 # SkyCanvas
 Long exposure photographs with automated Ardupilot Quad(s).
 
+## Development Setup
 
+This project uses [uv](https://github.com/astral-sh/uv) for Python package management and includes MAVSDK-Python as a git submodule for better agent/developer experience.
+
+### Initial Setup
+
+```bash
+# Clone with submodules
+git clone --recursive <repo-url>
+
+# Or if already cloned, initialize submodules
+git submodule update --init --recursive
+
+# Install dependencies with uv
+uv sync
+```
+
+### MAVSDK-Python Submodule
+
+The MAVSDK-Python library is included as a submodule at `external/mavsdk-python/` for:
+- 🔍 **Source code inspection** - Useful for AI agents and developers
+- 📝 **Proto definitions** - Available at `external/mavsdk-python/proto/protos/`
+- 🛠️ **Development** - Make changes and contribute back to MAVSDK
+- 📚 **Documentation** - Inline with the code
+
+#### Useful Commands
+
+```bash
+# Inspect available MAVSDK API methods
+uv run python inspect_mavsdk_api.py
+
+# View telemetry proto definitions
+cat external/mavsdk-python/proto/protos/telemetry/telemetry.proto
+
+# Update MAVSDK-Python to latest
+cd external/mavsdk-python
+git pull origin main
+cd ../..
+uv sync
+```
 
 ----
 # Planning 

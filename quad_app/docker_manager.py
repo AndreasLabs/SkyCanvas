@@ -55,3 +55,4 @@ class DockerManager:
         """Get recent logs from the service."""
         return self.docker.compose.logs(services=[service], tail=str(tail))
 
+

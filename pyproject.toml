@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "mavsdk>=3.10.2",
+    "mavsdk @ file:///home/vfp/repos/andreas/SkyCanvas/external/mavsdk-python",
     "python-on-whales>=0.75.0",
     "rerun-sdk>=0.28.2",
 ]
