@@ -107,8 +107,8 @@ uv sync
 - [x] Setup rerun w/ hello world logging of ardupilot data
 - [x] SIL Hop w/ Viz
 - [ ] Move logging to own class (reached file length limit)
-- [ ] LED Control w/ Viz (mock)]
-- [ ] 3D Viz
+- [x] LED Control w/ Viz (mock)]
+- [x] 3D Viz
 - [ ] Long Exposure viz (2d and 3d)
 - [ ] Follow Waypoint path
 - [ ] Track color in waypoints
