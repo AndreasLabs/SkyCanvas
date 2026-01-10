@@ -10,7 +10,7 @@ from quad_app.systems import LED
 class QuadOptions:
     def __init__(self):
         self.connection_string = "tcpout://127.0.0.1:5760"
-        self.telemetry_rate_hz = 25.0
+        self.telemetry_rate_hz = 50.0
 
     def set_connection_string(self, connection_string: str):
         self.connection_string = connection_string
@@ -27,6 +27,9 @@ class Quad:
         self.home_altitude = None
         self.quad_rerun = QuadRerun("quad_app")
         self.led = LED()
+        self.last_position = [0.0, 0.0]
+        # Logs a 2D coordinate (height and x) of the quad for long exposure visualization
+        self.exposure_history = []
 
 
 
@@ -124,6 +127,7 @@ class Quad:
             asyncio.create_task(self.log_in_air()),
             asyncio.create_task(self.log_led()),
             asyncio.create_task(self.fly_mission()),
+            asyncio.create_task(self.log_exposure_history()),
         ]
         
         
@@ -212,6 +216,7 @@ class Quad:
                     
                     # Log 3d point
                     color = self.led.to_rerun_color()
+                    self.last_position = [position_ned.position.east_m, position_ned.position.down_m]
                     position = [position_ned.position.north_m, position_ned.position.east_m, -position_ned.position.down_m]
                     rr.log("mavlink/position_ned/points", rr.Points3D([position], radii=0.2, labels=["Quad"], show_labels=True, colors=[color]))
      
@@ -222,6 +227,33 @@ class Quad:
         except Exception as e:
             logging.error(f"Fatal error in log_position_ned: {e}", exc_info=True)
             raise
+    
+    async def log_exposure_history(self):
+        """Log the exposure history"""
+        while True:
+            self.log_time_now()
+          #  logging.info(f"Quad // Exposure history: {len(self.exposure_history)}")
+        
+            # If empty, add the current position, color and brightness IF led is on
+            # Position is [east_m_s, down_m_s]
+            current_entry = {
+                "position": self.last_position,
+                "color": self.led.rgb,
+                "brightness": self.led.brightness
+            }
+            if len(self.exposure_history) == 0 and self.led.is_on:
+                self.exposure_history.append(current_entry)
+                logging.info(f"Quad // Added new entry to exposure history: {current_entry}")
+            # If there is a last entry - if the current position is at least 0.01m away from the last entry, add a new entry
+            if len(self.exposure_history) > 0:
+                last_entry = self.exposure_history[-1]
+                if abs(self.last_position[0] - last_entry["position"][0]) > 0.01 or abs(self.last_position[1] - last_entry["position"][1]) > 0.01:
+                    self.exposure_history.append(current_entry)
+                  #  logging.info(f"Quad // Added new entry to exposure history: {current_entry}")
+            # Log the exposure history as Points2D
+            rr.log("exposure/history", rr.Points2D([entry["position"] for entry in self.exposure_history], colors=[entry["color"] for entry in self.exposure_history], radii=0.05))
+            # Run at 20hz
+            await asyncio.sleep(0.02)
     
     def log_time_now(self):
         """Set the current time for rerun logging"""
