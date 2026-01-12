@@ -9,18 +9,9 @@ from quad_app.quad_rerun import QuadRerun
 from quad_app.systems import LED
 from quad_app.waypoints import WaypointSystem, Waypoint
 class QuadOptions:
-    def __init__(self):
-        self.connection_string = "tcpout://127.0.0.1:5760"
-        self.telemetry_rate_hz = 50.0
-
-    def set_connection_string(self, connection_string: str):
-        self.connection_string = connection_string
-    
-    def set_telemetry_rate_hz(self, rate_hz: float):
-        self.telemetry_rate_hz = rate_hz
-
-
-
+    def __init__(self, config: dict):
+        self.connection_string = config['connection_string']
+        self.telemetry_rate_hz = config['telemetry_rate_hz']
     
 class Quad:
     def __init__(self, options: QuadOptions):
