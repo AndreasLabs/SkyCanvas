@@ -6,7 +6,7 @@ import asyncio
 import rerun as rr
 from datetime import datetime
 from quad_app.quad_rerun import QuadRerun
-from quad_app.systems import LED
+from quad_app.systems import LED, WaypointSystem, Waypoint
 class QuadOptions:
     def __init__(self):
         self.connection_string = "tcpout://127.0.0.1:5760"
@@ -24,9 +24,10 @@ class Quad:
         logging.info("Quad // Initializing")
         self.options = options
         self.mav_system = None
-        self.home_altitude = None
+        self.current_lla = None
         self.quad_rerun = QuadRerun("quad_app")
         self.led = LED()
+        self.waypoints = WaypointSystem()
         self.last_position = [0.0, 0.0]
         # Logs a 2D coordinate (height and x) of the quad for long exposure visualization
         self.exposure_history = []
@@ -128,12 +129,17 @@ class Quad:
             asyncio.create_task(self.log_led()),
             asyncio.create_task(self.fly_mission()),
             asyncio.create_task(self.log_exposure_history()),
+            asyncio.create_task(self.run_waypoints()),
         ]
         
         
 
         exit_event = asyncio.Event()
         await exit_event.wait()
+
+    async def run_waypoints(self):
+        logging.info("Quad // Running waypoints")
+        await self.waypoints.run(self.mav_system)
 
     
     async def fly_mission(self):
@@ -157,7 +163,17 @@ class Quad:
         
         # Wait for 10 seconds
         await asyncio.sleep(10)
-        
+        self.led.rgb = [1.0, 1.0, 0.0]  # Green
+        # Command goto waypoint in NED coordinates
+        # Go 10m North, 10m East, -10m Down (up in NED), face East (90°)
+        waypoint = Waypoint(
+            ned=[10.0, 10.0, -10.0],
+            color=[0.0, 1.0, 1.0],
+            yaw_deg=90.0
+        )
+        await self.waypoints.command_goto(waypoint)
+        # Wait 20s to reach waypoint
+        await asyncio.sleep(20)
         # Blue LED for landing
         logging.info("Quad // Setting LED to BLUE for landing")
         self.led.rgb = [0.0, 0.0, 1.0]  # Blue
@@ -192,6 +208,7 @@ class Quad:
             self.log_dict("mavlink/position/raw", position)
             # Log the altitudes as scalars
             rr.log("mavlink/position/absolute_altitude_m", rr.Scalars(position.absolute_altitude_m))
+            self.current_lla = [position.latitude_deg, position.longitude_deg, position.absolute_altitude_m]
             rr.log("mavlink/position/relative_altitude_m", rr.Scalars(position.relative_altitude_m))
             
             # Log latitude_deg and longitude_deg as Geo
@@ -203,6 +220,7 @@ class Quad:
             logging.info("Quad // Starting local position NED logging")
             async for position_ned in self.mav_system.telemetry.position_velocity_ned():
                 try:
+                    await self.waypoints.update_last_position_ned(position_ned)
                     self.log_time_now()
                     self.log_dict("mavlink/position_ned/raw", position_ned)
                     # Log NED position coordinates as scalars

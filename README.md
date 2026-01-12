@@ -113,3 +113,7 @@ uv sync
 - [ ] Follow Waypoint path
 - [ ] Track color in waypoints
 - [ ] Add Low Poly Mesh desert floor / grid
+
+
+### Future Ideas:
+- Render pointclouds / depth clouds using 2.5d - draw points along depth.

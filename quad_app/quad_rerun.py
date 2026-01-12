@@ -27,3 +27,7 @@ class QuadRerun:
             "smoketest/points3d",
             rr.Points3D(positions, colors=colors, radii=0.5)
         )
+        
+    async def log_tick(self, quad):
+        self.log_time_now()
+        pass
