@@ -106,7 +106,7 @@ uv sync
 - [x] Setup heartbeat task for Ardupilot 
 - [x] Setup rerun w/ hello world logging of ardupilot data
 - [x] SIL Hop w/ Viz
-- [ ] Move logging to own class (reached file length limit)
+- [x] Move logging to own class (reached file length limit)
 - [x] LED Control w/ Viz (mock)]
 - [x] 3D Viz
 - [x] Long Exposure viz (2d and 3d)
