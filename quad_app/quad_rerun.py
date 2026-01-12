@@ -1,9 +1,11 @@
 import rerun as rr
 import numpy as np
 import logging
+from quad_app.quad import QuadContext
 class QuadRerun:
-    def __init__(self, name: str):
+    def __init__(self, name: str, context: QuadContext):
         self.name = name
+        self.context = context
         self.initialized = False
     async def init(self):
         logging.info(f"QuadRerun // Initializing {self.name}")
@@ -31,3 +33,6 @@ class QuadRerun:
     async def log_tick(self, quad):
         self.log_time_now()
         pass
+
+    async def log_position_geo(self):
+        # pass

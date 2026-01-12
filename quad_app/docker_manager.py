@@ -13,7 +13,7 @@ class DockerManager:
         self.compose_file = compose_file
         self.docker = DockerClient(compose_files=[self.compose_file])
 
-    def ensure_fresh(self, service: str = "ardupilot-sitl", timeout_seconds: int = 30):
+    def ensure_fresh(self, service: str = "ardupilot-sitl", timeout_seconds: int = 1):
         """
         Ensure a fresh instance of the service is running.
         - If running: restart it

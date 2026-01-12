@@ -18,29 +18,32 @@ class QuadOptions:
     def set_telemetry_rate_hz(self, rate_hz: float):
         self.telemetry_rate_hz = rate_hz
 
+class QuadContext:
+    def __init__(self):
+        self.mav_system = None
+        self.led_system = LED()
+        self.waypoint_system = WaypointSystem()
+        
+        self.lla_current = None
+        self.ned_current = None
+        self.ned_history = []
 
+    
 class Quad:
     def __init__(self, options: QuadOptions):
         logging.info("Quad // Initializing")
         self.options = options
-        self.mav_system = None
-        self.current_lla = None
-        self.quad_rerun = QuadRerun("quad_app")
-        self.led = LED()
-        self.waypoints = WaypointSystem()
-        self.last_position = [0.0, 0.0]
-        # Logs a 2D coordinate (height and x) of the quad for long exposure visualization
-        self.exposure_history = []
-
+        self.context = QuadContext()
+        self.quad_rerun = QuadRerun("quad_app", self.context)
 
 
     async def connect(self):
         """Connect to the MAVLink system"""
         logging.info(f"Quad // Connecting to {self.options.connection_string}")
-        self.mav_system = MavSystem()
-        await self.mav_system.connect(system_address=self.options.connection_string)
+        self.context.mav_system = MavSystem()
+        await self.context.mav_system.connect(system_address=self.options.connection_string)
                 # Wait for connection
-        async for state in self.mav_system.core.connection_state():
+        async for state in self.context.mav_system.core.connection_state():
             if state.is_connected:
                 logging.info("Quad // Connected to drone")
                 break
@@ -48,12 +51,12 @@ class Quad:
         # Request telemetry streams from ArduPilot (required for ArduPilot SITL/SIL)
         logging.info(f"Quad // Requesting telemetry streams at {self.options.telemetry_rate_hz} Hz")
         try:
-            await self.mav_system.telemetry.set_rate_health(self.options.telemetry_rate_hz)  # Includes EKF status
-            await self.mav_system.telemetry.set_rate_position(self.options.telemetry_rate_hz)
-            await self.mav_system.telemetry.set_rate_position_velocity_ned(self.options.telemetry_rate_hz)
-            await self.mav_system.telemetry.set_rate_battery(self.options.telemetry_rate_hz)
-            await self.mav_system.telemetry.set_rate_in_air(self.options.telemetry_rate_hz)
-            await self.mav_system.telemetry.set_rate_gps_info(self.options.telemetry_rate_hz)  # GPS satellite info
+            await self.context.mav_system.telemetry.set_rate_health(self.options.telemetry_rate_hz)  # Includes EKF status
+            await self.context.mav_system.telemetry.set_rate_position(self.options.telemetry_rate_hz)
+            await self.context.mav_system.telemetry.set_rate_position_velocity_ned(self.options.telemetry_rate_hz)
+            await self.context.mav_system.telemetry.set_rate_battery(self.options.telemetry_rate_hz)
+            await self.context.mav_system.telemetry.set_rate_in_air(self.options.telemetry_rate_hz)
+            await self.context.mav_system.telemetry.set_rate_gps_info(self.options.telemetry_rate_hz)  # GPS satellite info
             logging.info("Quad // Telemetry streams requested successfully (including EKF status)")
         except Exception as e:
             logging.warning(f"Quad // Error requesting telemetry streams: {e}")
@@ -66,7 +69,7 @@ class Quad:
 
         # Wait for EKF to initialize with local and global position estimates
         logging.info("Quad // Waiting for EKF initialization (local & global position)")
-        async for health in self.mav_system.telemetry.health():
+        async for health in self.context.mav_system.telemetry.health():
             self.log_dict("mavlink/health/raw", health)
             if health.is_local_position_ok and health.is_global_position_ok and health.is_home_position_ok:
                 logging.info("Quad // EKF Ready - Local position OK, Global position OK, Home position OK")
@@ -81,11 +84,11 @@ class Quad:
     async def arm(self):
         """Arm the drone"""
         logging.info("Quad // Arming")
-        await self.mav_system.action.arm()
+        await self.context.mav_system.action.arm()
         
         # Wait for armed confirmatio
         logging.info("Quad // Waiting for armed confirmation")
-        async for armed in self.mav_system.telemetry.armed():
+        async for armed in self.context.mav_system.telemetry.armed():
             if armed:
                 logging.info("Quad // Armed")
                 break
@@ -96,22 +99,22 @@ class Quad:
     async def takeoff(self):
         """Take off to default altitude"""
         logging.info("Quad // Taking off")
-        await self.mav_system.action.takeoff()
+        await self.context.mav_system.action.takeoff()
 
     async def goto_location(self, latitude: float, longitude: float, altitude: float, yaw: float):
         """Fly to specified location"""
         logging.info(f"Quad // Going to lat={latitude}, lon={longitude}, alt={altitude}m, yaw={yaw}°")
-        await self.mav_system.action.goto_location(latitude, longitude, altitude, yaw)
+        await self.context.mav_system.action.goto_location(latitude, longitude, altitude, yaw)
 
     async def land(self):
         """Land the drone"""
         logging.info("Quad // Landing")
-        await self.mav_system.action.land()
+        await self.context.mav_system.action.land()
 
     async def disarm(self):
         """Disarm the drone"""
         logging.info("Quad // Disarming")
-        await self.mav_system.action.disarm()
+        await self.context.mav_system.action.disarm()
 
     async def run(self):
         """Execute a simple test flight"""
@@ -139,7 +142,7 @@ class Quad:
 
     async def run_waypoints(self):
         logging.info("Quad // Running waypoints")
-        await self.waypoints.run(self.mav_system)
+        await self.context.waypoint_system.run(self.context.mav_system)
 
     
     async def fly_mission(self):
@@ -152,18 +155,18 @@ class Quad:
         
         # Red LED for takeoff (hop)
         logging.info("Quad // Setting LED to RED for takeoff")
-        self.led.rgb = [1.0, 0.0, 0.0]  # Red
-        self.led.is_on = True
+        self.context.led_system.rgb = [1.0, 0.0, 0.0]  # Red
+        self.context.led_system.is_on = True
         
         await self.takeoff()
         
         # Green LED while flying/hovering
         logging.info("Quad // Setting LED to GREEN while flying")
-        self.led.rgb = [0.0, 1.0, 0.0]  # Green
+        self.context.led_system.rgb = [0.0, 1.0, 0.0]  # Green
         
         # Wait for 10 seconds
         await asyncio.sleep(10)
-        self.led.rgb = [1.0, 1.0, 0.0]  # Green
+        self.context.led_system.rgb = [1.0, 1.0, 0.0]  # Green
         # Command goto waypoint in NED coordinates
         # Go 10m North, 10m East, -10m Down (up in NED), face East (90°)
         waypoint = Waypoint(
@@ -171,12 +174,12 @@ class Quad:
             color=[0.0, 1.0, 1.0],
             yaw_deg=90.0
         )
-        await self.waypoints.command_goto(waypoint)
+        await self.context.waypoint_system.command_goto(waypoint)
         # Wait 20s to reach waypoint
         await asyncio.sleep(20)
         # Blue LED for landing
         logging.info("Quad // Setting LED to BLUE for landing")
-        self.led.rgb = [0.0, 0.0, 1.0]  # Blue
+        self.context.led_system.rgb = [0.0, 0.0, 1.0]  # Blue
         await self.land()
         
         # Wait for 10 seconds
@@ -184,14 +187,14 @@ class Quad:
         
         # Turn off LED after disarm
         logging.info("Quad // Turning LED OFF")
-        self.led.is_on = False
+        self.context.led_system.is_on = False
         await self.disarm()
     
     async def log_status_text(self):
         """Log status text messages from the drone"""
         try:
             logging.info("Quad // Starting status text logging")
-            async for message in self.mav_system.telemetry.status_text():
+            async for message in self.context.mav_system.telemetry.status_text():
                 try:
                     logging.info(f" ==== ARDUPILOT // Message: {message}")
                     self.log_time_now()
@@ -203,12 +206,12 @@ class Quad:
             raise
     
     async def log_position(self):
-        async for position in self.mav_system.telemetry.position():
+        async for position in self.context.mav_system.telemetry.position():
             self.log_time_now()
             self.log_dict("mavlink/position/raw", position)
             # Log the altitudes as scalars
             rr.log("mavlink/position/absolute_altitude_m", rr.Scalars(position.absolute_altitude_m))
-            self.current_lla = [position.latitude_deg, position.longitude_deg, position.absolute_altitude_m]
+            self.context.lla_current = [position.latitude_deg, position.longitude_deg, position.absolute_altitude_m]
             rr.log("mavlink/position/relative_altitude_m", rr.Scalars(position.relative_altitude_m))
             
             # Log latitude_deg and longitude_deg as Geo
@@ -218,9 +221,9 @@ class Quad:
         """Log local position in NED (North-East-Down) coordinates"""
         try:
             logging.info("Quad // Starting local position NED logging")
-            async for position_ned in self.mav_system.telemetry.position_velocity_ned():
+            async for position_ned in self.context.mav_system.telemetry.position_velocity_ned():
                 try:
-                    await self.waypoints.update_last_position_ned(position_ned)
+                    await self.context.waypoint_system.update_last_position_ned(position_ned)
                     self.log_time_now()
                     self.log_dict("mavlink/position_ned/raw", position_ned)
                     # Log NED position coordinates as scalars
@@ -233,10 +236,9 @@ class Quad:
                     rr.log("mavlink/velocity_ned/down_m_s", rr.Scalars(position_ned.velocity.down_m_s))
                     
                     # Log 3d point
-                    color = self.led.to_rerun_color()
-                    self.last_position = [position_ned.position.east_m, position_ned.position.down_m]
-                    position = [position_ned.position.north_m, position_ned.position.east_m, -position_ned.position.down_m]
-                    rr.log("mavlink/position_ned/points", rr.Points3D([position], radii=0.2, labels=["Quad"], show_labels=True, colors=[color]))
+                    color = self.context.led_system.to_rerun_color()
+                    self.context.ned_current = [position_ned.position.north_m, position_ned.position.east_m, -position_ned.position.down_m]
+                    rr.log("mavlink/position_ned/points", rr.Points3D([self.context.ned_current], radii=0.2, labels=["Quad"], show_labels=True, colors=[color]))
      
 
 
@@ -250,26 +252,27 @@ class Quad:
         """Log the exposure history"""
         while True:
             self.log_time_now()
-          #  logging.info(f"Quad // Exposure history: {len(self.exposure_history)}")
+          #  logging.info(f"Quad // Exposure history: {len(self.context.ned_history)}")
         
             # If empty, add the current position, color and brightness IF led is on
-            # Position is [east_m_s, down_m_s]
+            # Position is [north_m, east_m, -down_m]
             current_entry = {
-                "position": self.last_position,
-                "color": self.led.rgb,
-                "brightness": self.led.brightness
+                "position": self.context.ned_current,
+                "color": self.context.led_system.rgb,
+                "brightness": self.context.led_system.brightness
             }
-            if len(self.exposure_history) == 0 and self.led.is_on:
-                self.exposure_history.append(current_entry)
+            if len(self.context.ned_history) == 0 and self.context.led_system.is_on and self.context.ned_current is not None:
+                self.context.ned_history.append(current_entry)
                 logging.info(f"Quad // Added new entry to exposure history: {current_entry}")
             # If there is a last entry - if the current position is at least 0.01m away from the last entry, add a new entry
-            if len(self.exposure_history) > 0:
-                last_entry = self.exposure_history[-1]
-                if abs(self.last_position[0] - last_entry["position"][0]) > 0.01 or abs(self.last_position[1] - last_entry["position"][1]) > 0.01:
-                    self.exposure_history.append(current_entry)
+            if len(self.context.ned_history) > 0 and self.context.ned_current is not None:
+                last_entry = self.context.ned_history[-1]
+                if abs(self.context.ned_current[0] - last_entry["position"][0]) > 0.01 or abs(self.context.ned_current[1] - last_entry["position"][1]) > 0.01 or abs(self.context.ned_current[2] - last_entry["position"][2]) > 0.01:
+                    self.context.ned_history.append(current_entry)
                   #  logging.info(f"Quad // Added new entry to exposure history: {current_entry}")
-            # Log the exposure history as Points2D
-            rr.log("exposure/history", rr.Points2D([entry["position"] for entry in self.exposure_history], colors=[entry["color"] for entry in self.exposure_history], radii=0.05))
+            # Log the exposure history as Points3D
+            if len(self.context.ned_history) > 0:
+                rr.log("exposure/history", rr.Points3D([entry["position"] for entry in self.context.ned_history], colors=[entry["color"] for entry in self.context.ned_history], radii=0.05))
             # Run at 20hz
             await asyncio.sleep(0.02)
     
@@ -302,7 +305,7 @@ class Quad:
             logging.error(f"Error logging dict to {path}: {e}")
 
     async def log_battery(self):
-        async for battery in self.mav_system.telemetry.battery():
+        async for battery in self.context.mav_system.telemetry.battery():
              self.log_time_now()
              self.log_dict("mavlink/battery/raw", battery)
              #remaining_percent
@@ -314,7 +317,7 @@ class Quad:
         """Log GPS information including satellite count and fix type"""
         try:
             logging.info("Quad // Starting GPS info logging")
-            async for gps_info in self.mav_system.telemetry.gps_info():
+            async for gps_info in self.context.mav_system.telemetry.gps_info():
                 try:
                     self.log_time_now()
                     # Log satellite count
@@ -331,7 +334,7 @@ class Quad:
         """Log in-air status"""
         try:
             logging.info("Quad // Starting in-air logging")
-            async for in_air in self.mav_system.telemetry.in_air():
+            async for in_air in self.context.mav_system.telemetry.in_air():
                 try:
                     self.log_time_now()
                     
@@ -345,24 +348,13 @@ class Quad:
     
     async def log_led(self):
         """Log LED state to Rerun"""
-        try:
-            logging.info("Quad // Starting LED logging")
-            while True:
-                try:
-                    self.log_time_now()
-                    
-                    # Log LED state as JSON
-                    led_data = {
-                        "rgb": self.led.rgb,
-                        "brightness": self.led.brightness,
-                        "is_on": self.led.is_on
-                    }
-                    self.log_dict("led/state", led_data)
-                    
-                    await asyncio.sleep(0.1)  # Log at ~10Hz
-                except Exception as e:
-                    logging.error(f"Error in log_led iteration: {e}", exc_info=True)
-        except Exception as e:
-            logging.error(f"Fatal error in log_led: {e}", exc_info=True)
-            raise
-        
+        while True:
+            self.log_time_now()
+            # Log LED state as JSON
+            led_data = {
+                "rgb": self.context.led_system.rgb,
+                "brightness": self.context.led_system.brightness,
+                "is_on": self.context.led_system.is_on
+            }
+            self.log_dict("led/state", led_data)
+            await asyncio.sleep(0.02)  # Log at ~50Hz
