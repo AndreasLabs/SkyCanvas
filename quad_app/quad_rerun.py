@@ -1,7 +1,7 @@
 import rerun as rr
 import numpy as np
 import logging
-from quad_app.quad import QuadContext
+from quad_app.context import QuadContext
 class QuadRerun:
     def __init__(self, name: str, context: QuadContext):
         self.name = name
@@ -35,4 +35,4 @@ class QuadRerun:
         pass
 
     async def log_position_geo(self):
-        # pass
+        pass

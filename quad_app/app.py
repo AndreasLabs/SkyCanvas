@@ -20,7 +20,7 @@ class QuadApp:
             self.docker_manager.ensure_fresh()
             # Give SITL a moment to initialize after restart
             logging.info("QuadApp // Waiting for SITL to initialize...")
-            await asyncio.sleep(2)
+            await asyncio.sleep(5)
 
 
         await self.quad.connect()

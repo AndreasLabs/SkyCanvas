@@ -5,8 +5,10 @@ from mavsdk import System as MavSystem
 import asyncio
 import rerun as rr
 from datetime import datetime
+from quad_app.context import QuadContext
 from quad_app.quad_rerun import QuadRerun
-from quad_app.systems import LED, WaypointSystem, Waypoint
+from quad_app.systems import LED
+from quad_app.waypoints import WaypointSystem, Waypoint
 class QuadOptions:
     def __init__(self):
         self.connection_string = "tcpout://127.0.0.1:5760"
@@ -18,15 +20,7 @@ class QuadOptions:
     def set_telemetry_rate_hz(self, rate_hz: float):
         self.telemetry_rate_hz = rate_hz
 
-class QuadContext:
-    def __init__(self):
-        self.mav_system = None
-        self.led_system = LED()
-        self.waypoint_system = WaypointSystem()
-        
-        self.lla_current = None
-        self.ned_current = None
-        self.ned_history = []
+
 
     
 class Quad:
@@ -34,6 +28,7 @@ class Quad:
         logging.info("Quad // Initializing")
         self.options = options
         self.context = QuadContext()
+        self.waypoints = WaypointSystem()
         self.quad_rerun = QuadRerun("quad_app", self.context)
 
 
@@ -142,15 +137,12 @@ class Quad:
 
     async def run_waypoints(self):
         logging.info("Quad // Running waypoints")
-        await self.context.waypoint_system.run(self.context.mav_system)
+        await self.waypoints.run(self.context)
 
     
     async def fly_mission(self):
-        # Run our current desired actions after drone is ready.
-        # currently just wait for ready, arm, takeoff, land, disarm
         logging.info("Quad // Flying mission")
         await self.wait_for_ready()
-        
         await self.arm()
         
         # Red LED for takeoff (hop)
@@ -163,10 +155,10 @@ class Quad:
         # Green LED while flying/hovering
         logging.info("Quad // Setting LED to GREEN while flying")
         self.context.led_system.rgb = [0.0, 1.0, 0.0]  # Green
-        
+        self.context.led_system.is_on = False
         # Wait for 10 seconds
         await asyncio.sleep(10)
-        self.context.led_system.rgb = [1.0, 1.0, 0.0]  # Green
+
         # Command goto waypoint in NED coordinates
         # Go 10m North, 10m East, -10m Down (up in NED), face East (90°)
         waypoint = Waypoint(
@@ -174,7 +166,7 @@ class Quad:
             color=[0.0, 1.0, 1.0],
             yaw_deg=90.0
         )
-        await self.context.waypoint_system.command_goto(waypoint)
+        await self.waypoints.command_goto(waypoint)
         # Wait 20s to reach waypoint
         await asyncio.sleep(20)
         # Blue LED for landing
@@ -223,7 +215,7 @@ class Quad:
             logging.info("Quad // Starting local position NED logging")
             async for position_ned in self.context.mav_system.telemetry.position_velocity_ned():
                 try:
-                    await self.context.waypoint_system.update_last_position_ned(position_ned)
+                    await self.waypoints.update_last_position_ned(position_ned)
                     self.log_time_now()
                     self.log_dict("mavlink/position_ned/raw", position_ned)
                     # Log NED position coordinates as scalars
@@ -254,25 +246,30 @@ class Quad:
             self.log_time_now()
           #  logging.info(f"Quad // Exposure history: {len(self.context.ned_history)}")
         
-            # If empty, add the current position, color and brightness IF led is on
-            # Position is [north_m, east_m, -down_m]
-            current_entry = {
-                "position": self.context.ned_current,
-                "color": self.context.led_system.rgb,
-                "brightness": self.context.led_system.brightness
-            }
-            if len(self.context.ned_history) == 0 and self.context.led_system.is_on and self.context.ned_current is not None:
-                self.context.ned_history.append(current_entry)
-                logging.info(f"Quad // Added new entry to exposure history: {current_entry}")
-            # If there is a last entry - if the current position is at least 0.01m away from the last entry, add a new entry
-            if len(self.context.ned_history) > 0 and self.context.ned_current is not None:
-                last_entry = self.context.ned_history[-1]
-                if abs(self.context.ned_current[0] - last_entry["position"][0]) > 0.01 or abs(self.context.ned_current[1] - last_entry["position"][1]) > 0.01 or abs(self.context.ned_current[2] - last_entry["position"][2]) > 0.01:
+            # Only track entries when LED is on
+            if self.context.led_system.is_on and self.context.ned_current is not None:
+                # Position is [north_m, east_m, -down_m]
+                current_entry = {
+                    "position": self.context.ned_current,
+                    "color": self.context.led_system.rgb,
+                    "brightness": self.context.led_system.brightness
+                }
+                
+                # If empty, add the current position
+                if len(self.context.ned_history) == 0:
                     self.context.ned_history.append(current_entry)
-                  #  logging.info(f"Quad // Added new entry to exposure history: {current_entry}")
+                    logging.info(f"Quad // Added new entry to exposure history: {current_entry}")
+                # If there is a last entry - if the current position is at least 0.01m away from the last entry, add a new entry
+                elif len(self.context.ned_history) > 0:
+                    last_entry = self.context.ned_history[-1]
+                    if abs(self.context.ned_current[0] - last_entry["position"][0]) > 0.01 or abs(self.context.ned_current[1] - last_entry["position"][1]) > 0.01 or abs(self.context.ned_current[2] - last_entry["position"][2]) > 0.01:
+                        self.context.ned_history.append(current_entry)
+                      #  logging.info(f"Quad // Added new entry to exposure history: {current_entry}")
+            
             # Log the exposure history as Points3D
             if len(self.context.ned_history) > 0:
-                rr.log("exposure/history", rr.Points3D([entry["position"] for entry in self.context.ned_history], colors=[entry["color"] for entry in self.context.ned_history], radii=0.05))
+                rr.log("exposure/history/2d", rr.Points2D([entry["position"][:2] for entry in self.context.ned_history], colors=[entry["color"] for entry in self.context.ned_history], radii=0.05))
+                rr.log("exposure/history/3d", rr.Points3D([entry["position"] for entry in self.context.ned_history], colors=[entry["color"] for entry in self.context.ned_history], radii=0.05))
             # Run at 20hz
             await asyncio.sleep(0.02)
     

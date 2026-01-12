@@ -3,7 +3,7 @@ import asyncio
 from enum import Enum
 from mavsdk.offboard import OffboardError, PositionNedYaw
 
-
+from quad_app.context import QuadContext
 class Waypoint:
     def __init__(self, ned, color, brightness=1.0, hold_time=1.0, yaw_deg=0.0):
         self.ned = ned
@@ -40,27 +40,27 @@ class WaypointSystem:
     async def update_last_position_ned(self, position_ned):
         self.last_position_ned = position_ned
     
-    async def run(self, mav_system):
+    async def run(self, context: QuadContext):
         while True:
-            await self.tick_state_machine(mav_system)
+            await self.tick_state_machine(context)
             await asyncio.sleep(0.1)
     
-    async def tick_state_machine(self, mav_system):
+    async def tick_state_machine(self, context: QuadContext):
         if self.state == WaypointState.HOLD:
-            await self.tick_hold(mav_system)
+            await self.tick_hold(context)
         elif self.state == WaypointState.COMMAND_GOTO:
-            await self.tick_command_goto(mav_system)
+            await self.tick_command_goto(context)
         elif self.state == WaypointState.GOTO:
-            await self.tick_goto(mav_system)
+            await self.tick_goto(context)
         elif self.state == WaypointState.REACHED:
-            await self.tick_reached(mav_system)
+            await self.tick_reached(context)
         else:
             logging.error(f"WaypointSystem // Invalid state: {self.state}")
     
-    async def tick_hold(self, mav_system):
+    async def tick_hold(self, context: QuadContext):
         pass
 
-    async def tick_command_goto(self, mav_system):
+    async def tick_command_goto(self, context: QuadContext):
         logging.info(f"WaypointSystem // COMMAND_GOTO - Starting offboard mode")
         
         try:
@@ -71,6 +71,7 @@ class WaypointSystem:
                 self.current_waypoint.ned[2],
                 self.current_waypoint.yaw_deg
             )
+            mav_system = context.mav_system
             await mav_system.offboard.set_position_ned(target_ned)
             
             # Start offboard mode
@@ -85,7 +86,7 @@ class WaypointSystem:
             self.state = WaypointState.HOLD
             self.current_waypoint = None
 
-    async def tick_goto(self, mav_system):
+    async def tick_goto(self, context: QuadContext):
         if self.last_position_ned is None:
             logging.error(f"WaypointSystem // No last position NED")
             return
@@ -103,8 +104,20 @@ class WaypointSystem:
             logging.info(f"WaypointSystem // Reached waypoint!")
             self.state = WaypointState.REACHED
 
-    async def tick_reached(self, mav_system):
-        logging.info(f"WaypointSystem // REACHED - Stopping offboard mode")
+    async def tick_reached(self, context: QuadContext):
+        
+        logging.info(f"WaypointSystem // REACHED - Starting LED")
+        
+        context.led_system.rgb = self.current_waypoint.color
+        context.led_system.brightness = self.current_waypoint.brightness
+        context.led_system.is_on = True
+        
+
+        logging.info(f"WaypointSystem // REACHED - Holding for {self.current_waypoint.hold_time} seconds")
+       
+                # Wait for hold time
+        await asyncio.sleep(self.current_waypoint.hold_time)
+        context.led_system.is_on = False
         
         self.current_waypoint = None
         self.state = WaypointState.HOLD
