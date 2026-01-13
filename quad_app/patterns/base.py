@@ -27,7 +27,9 @@ class PointcloudConfig(PatternConfig):
         ply_path: Path to PLY pointcloud file
         density: Minimum distance between points in meters
         depth_scale: Max depth range in meters (0 = flat/2D, >0 = 2.5D relief)
+        spatial_sort: Enable zig-zag sorting for efficient traversal
     """
     ply_path: str = ""
     density: float = 0.1
     depth_scale: float = 0.0
+    spatial_sort: bool = False

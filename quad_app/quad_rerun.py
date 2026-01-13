@@ -42,8 +42,8 @@ class QuadRerun:
             asyncio.create_task(self.log_status_text()),
             asyncio.create_task(self.log_position_ned(waypoints)),
             asyncio.create_task(self.log_battery()),
-            asyncio.create_task(self.log_gps_info()),
-            asyncio.create_task(self.log_in_air()),
+            #asyncio.create_task(self.log_gps_info()),
+           #asyncio.create_task(self.log_in_air()),
             asyncio.create_task(self.log_led()),
             asyncio.create_task(self.log_exposure_history()),
         ]

@@ -5,7 +5,7 @@ import asyncio
 from quad_app.missions.base import Mission
 from quad_app.context import QuadContext
 from quad_app.waypoints import WaypointSystem
-from quad_app.patterns import generate_smiley, PatternConfig
+from quad_app.patterns import generate_smiley
 
 
 class SmileyMission(Mission):
@@ -45,12 +45,8 @@ class SmileyMission(Mission):
         # Wait for stabilization
         await asyncio.sleep(5)
 
-        # Generate smiley face pattern using patterns module
-        pattern_config = PatternConfig(
-            center=(2.5, 0.0, -4.5), 
-            scale=1.0
-        )
-        path = generate_smiley(pattern_config)
+        # Generate smiley face pattern (reads config from global Config)
+        path = generate_smiley()
         logging.info(f"SmileyMission // Created smiley face path with {len(path)} waypoints")
         
         # Execute the waypoint path

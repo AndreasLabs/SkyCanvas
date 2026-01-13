@@ -3,22 +3,16 @@
 
 import sys
 from pathlib import Path
-from lupa.lua54 import LuaRuntime
+
+# Add parent directory to path so we can import skycanvas_config
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from skycanvas_config import Config
 
 from depth_capture.capture import DepthEstimator, load_from_file, center_crop_and_resize
 from depth_capture.export_ply import create_pointcloud_from_depth
 from depth_capture.viewer import view_pointcloud, render_pointcloud
 from depth_capture.segment import YOLOESegmenter
-
-
-def load_config(config_path: str = "config.lua") -> dict:
-    """Load depth config from Lua file."""
-    lua = LuaRuntime(unpack_returned_tuples=True)
-    with open(config_path, 'r') as f:
-        lua.execute(f.read())
-    
-    t = lua.globals().config.depth
-    return {k: t[k] for k in t}
 
 
 def get_output_path(input_path: str) -> str:
@@ -29,7 +23,27 @@ def get_output_path(input_path: str) -> str:
 
 def main():
     # Load config
-    config = load_config(Path(__file__).parent.parent / "config.lua")
+    Config.load(Path(__file__).parent.parent / "config.lua")
+    
+    # Build config dict with defaults
+    config = {
+        'input': Config.get('depth.input'),
+        'model': Config.get('depth.model', 'DPT_Large'),
+        'crop_size': Config.get('depth.crop_size', 512),
+        'downsample_step': Config.get('depth.downsample_step', 50),
+        'segment': Config.get('depth.segment'),
+        'depth_min': Config.get('depth.depth_min', 0.5),
+        'depth_max': Config.get('depth.depth_max', 0.75),
+        'flatten': Config.get('depth.flatten'),
+        'crop_min': Config.get('depth.crop_min'),
+        'crop_max': Config.get('depth.crop_max'),
+        'save_depth': Config.get('depth.save_depth', True),
+        'save_mask': Config.get('depth.save_mask', True),
+        'save_masked': Config.get('depth.save_masked', True),
+        'save_overlay': Config.get('depth.save_overlay', True),
+        'save_render': Config.get('depth.save_render', True),
+        'view': Config.get('depth.view', False),
+    }
     
     # CLI override: [input] [--segment "prompt"]
     if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):

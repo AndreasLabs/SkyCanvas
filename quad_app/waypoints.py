@@ -134,7 +134,7 @@ class WaypointSystem:
         
         logging.info(f"WaypointSystem // GOTO - Distance to waypoint: {distance_m:.2f}m")
         
-        if distance_m < 0.3:
+        if distance_m < 0.25:
             logging.info(f"WaypointSystem // Reached waypoint!")
             self.state = WaypointState.REACHED
 

@@ -5,7 +5,7 @@ import asyncio
 from quad_app.missions.base import Mission
 from quad_app.context import QuadContext
 from quad_app.waypoints import WaypointSystem
-from quad_app.patterns import generate_from_pointcloud, PointcloudConfig
+from quad_app.patterns import generate_from_pointcloud
 
 
 class PointcloudMission(Mission):
@@ -24,6 +24,7 @@ class PointcloudMission(Mission):
                 - density: Minimum distance between points
                 - depth_scale: Depth range (0 = flat, >0 = 2.5D)
                 - hold_time: Time to hold at each waypoint
+                - spatial_sort: Sort points in zig-zag pattern for efficiency
         """
         self.config = config or {}
         
@@ -51,36 +52,9 @@ class PointcloudMission(Mission):
         # Wait for stabilization
         await asyncio.sleep(5)
 
-        # Load pointcloud configuration from mission config
-        ply_path = self.config.get('ply_path', 'data/test_images/depth_out/color_car1.ply')
-        center_raw = self.config.get('center', [0.0, 0.0, -10.0])
-        # Handle both lists and Lua-converted dicts
-        if isinstance(center_raw, dict):
-            center = tuple(center_raw.get(i, center_raw.get(str(i), 0)) for i in range(1, 4))
-        elif isinstance(center_raw, (list, tuple)):
-            center = tuple(center_raw)
-        else:
-            center = (0.0, 0.0, -10.0)
-        
-        scale = self.config.get('scale', 3.0)
-        density = self.config.get('density', 0.2)
-        depth_scale = self.config.get('depth_scale', 1.0)
-        hold_time = self.config.get('hold_time', 0.3)
-        
-        logging.info(f"PointcloudMission // Config: center={center}, scale={scale}, density={density}")
-        
-        # Generate pointcloud pattern
-        pattern_config = PointcloudConfig(
-            ply_path=ply_path,
-            center=center,
-            scale=scale,
-            density=density,
-            depth_scale=depth_scale,
-            hold_time=hold_time,
-        )
-        
-        logging.info(f"PointcloudMission // Loading PLY from {ply_path}")
-        path = generate_from_pointcloud(pattern_config)
+        # Generate pointcloud pattern (reads config from global Config)
+        logging.info(f"PointcloudMission // Generating pattern from config.lua")
+        path = generate_from_pointcloud()
         logging.info(f"PointcloudMission // Created pointcloud path with {len(path)} waypoints")
         
         # Execute the waypoint path

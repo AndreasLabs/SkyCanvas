@@ -1,28 +1,33 @@
 """Smiley face pattern generation."""
 
 import math
-from quad_app.patterns.base import PatternConfig
 from quad_app.waypoints import Waypoint
+from skycanvas_config import Config
 
 
-def generate_smiley(config: PatternConfig) -> list[Waypoint]:
-    """Generate a smiley face pattern in 3D space.
+def generate_smiley() -> list[Waypoint]:
+    """Generate a smiley face pattern in 3D space using global Config.
     
     The pattern uses the X-Z plane (NED: North-Down) with East=0:
     - Face outline: circular path
     - Two eyes: small circles at the top
     - Smile: curved arc at the bottom
     
-    Args:
-        config: Pattern configuration with center position and scale
-        
+    Configuration is read from global Config singleton:
+    - Config['mission.center']: NED center position
+    - Config['mission.scale']: Scale factor
+    - Config['mission.hold_time']: Time to hold at each waypoint
+    
     Returns:
         List of waypoints forming a smiley face
     """
     path = []
-    center = config.center
-    scale = config.scale
-    hold_time = config.hold_time
+    center = Config.get('mission.center', [0.0, 0.0, -10.0])
+    if isinstance(center, dict):
+        # Handle Lua tables converted to dicts
+        center = [center.get(i, 0.0) for i in range(1, 4)]
+    scale = Config.get('mission.scale', 1.0)
+    hold_time = Config.get('mission.hold_time', 0.3)
     
     # Face outline - circular (24 points)
     face_radius = 2.3 * scale
