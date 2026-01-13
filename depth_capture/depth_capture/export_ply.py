@@ -62,6 +62,53 @@ def downsample_points(
     return points, colors
 
 
+def crop_by_depth(
+    points: np.ndarray,
+    colors: np.ndarray,
+    crop_min: float | None = None,
+    crop_max: float | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    """Crop/filter points by depth (Z) range.
+    
+    Removes points outside the specified depth range. Since Z is negative
+    (camera looks into -Z), we compare absolute depth values.
+    
+    Args:
+        points: Nx3 array of XYZ coordinates
+        colors: Nx3 array of RGB values
+        crop_min: Minimum depth to keep (removes points closer than this)
+        crop_max: Maximum depth to keep (removes points farther than this)
+        
+    Returns:
+        Filtered (points, colors) tuple
+    """
+    if crop_min is None and crop_max is None:
+        return points, colors
+    
+    n_points_before = len(points)
+    
+    # Z is negative, so depth = -Z
+    depth = -points[:, 2]
+    
+    # Create mask for points within range
+    mask = np.ones(len(points), dtype=bool)
+    
+    if crop_min is not None:
+        mask &= depth >= crop_min
+    
+    if crop_max is not None:
+        mask &= depth <= crop_max
+    
+    points_filtered = points[mask]
+    colors_filtered = colors[mask]
+    
+    n_points_after = len(points_filtered)
+    crop_range = f"{crop_min if crop_min else 0}m - {crop_max if crop_max else '∞'}m"
+    print(f"Cropped by depth ({crop_range}): {n_points_before} -> {n_points_after} points ({n_points_before - n_points_after} removed)")
+    
+    return points_filtered, colors_filtered
+
+
 def depth_to_pointcloud(
     image: np.ndarray,
     depth_map: np.ndarray,
@@ -172,7 +219,9 @@ def create_pointcloud_from_depth(
     depth_max: float = 10.0,
     max_points: int | None = None,
     downsample_step: int | None = None,
-    save_depth: bool = False
+    save_depth: bool = False,
+    crop_min: float | None = None,
+    crop_max: float | None = None
 ) -> None:
     """Complete pipeline: depth + RGB -> PLY pointcloud.
     
@@ -186,6 +235,8 @@ def create_pointcloud_from_depth(
         max_points: Maximum number of points to export (None = no limit)
         downsample_step: Take every Nth point (None = no step)
         save_depth: Save depth visualization image for debugging
+        crop_min: Remove points closer than this depth (None = no min crop)
+        crop_max: Remove points farther than this depth (None = no max crop)
     """
     # Optionally save depth visualization
     if save_depth:
@@ -198,6 +249,9 @@ def create_pointcloud_from_depth(
     points, colors = depth_to_pointcloud(image, depth_map, focal_length, depth_min, depth_max)
     
     print(f"Generated pointcloud with {len(points)} points")
+    
+    # Crop by depth if requested
+    points, colors = crop_by_depth(points, colors, crop_min, crop_max)
     
     # Downsample if requested
     points, colors = downsample_points(points, colors, max_points, downsample_step)

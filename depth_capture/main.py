@@ -121,8 +121,32 @@ def main():
         action="store_true",
         help="Open the result in 3D viewer after export"
     )
+    parser.add_argument(
+        "--crop-min",
+        type=float,
+        default=None,
+        help="Crop points closer than this depth in meters (removes foreground)"
+    )
+    parser.add_argument(
+        "--crop-max",
+        type=float,
+        default=None,
+        help="Crop points farther than this depth in meters (removes background)"
+    )
+    parser.add_argument(
+        "--flatten",
+        type=float,
+        default=None,
+        help="Flatten depth to this range in meters (e.g., --flatten 1 = 1m total depth). Overrides depth-min/max."
+    )
     
     args = parser.parse_args()
+    
+    # Handle flatten shortcut
+    if args.flatten is not None:
+        center = (args.depth_min + args.depth_max) / 2
+        args.depth_min = center - args.flatten / 2
+        args.depth_max = center + args.flatten / 2
     
     # Determine output path
     output_path = args.output if args.output else get_default_output_path(args.input)
@@ -168,7 +192,9 @@ def main():
         depth_max=args.depth_max,
         max_points=args.max_points,
         downsample_step=args.downsample_step,
-        save_depth=args.save_depth
+        save_depth=args.save_depth,
+        crop_min=args.crop_min,
+        crop_max=args.crop_max
     )
     
     print("\n" + "=" * 60)
@@ -188,7 +214,11 @@ def main():
     # Open in viewer if requested
     if args.view:
         print("\nOpening in 3D viewer...")
-        view_pointcloud(output_path)
+        view_pointcloud(
+            output_path,
+            depth_min=args.depth_min,
+            depth_max=args.depth_max
+        )
 
 
 if __name__ == "__main__":
