@@ -160,7 +160,7 @@ class QuadRerun:
             # Log the exposure history as Points3D
             if len(self.context.ned_history) > 0:
                 # 2d is the X (east) and Alt (0, and 2, index)
-                pos_2d = [[entry["position"][1], entry["position"][2]] for entry in self.context.ned_history]
+                pos_2d = [[entry["position"][0], -entry["position"][2]] for entry in self.context.ned_history]
                 rr.log("exposure/history/2d", rr.Points2D(pos_2d, colors=[entry["color"] for entry in self.context.ned_history], radii=0.05))
                 rr.log("exposure/history/3d", rr.Points3D([entry["position"] for entry in self.context.ned_history], colors=[entry["color"] for entry in self.context.ned_history], radii=0.05))
             # Run at 20hz

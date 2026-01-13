@@ -20,11 +20,29 @@ class WaypointState(Enum):
 
 class WaypointSystem:
     def __init__(self):
+        self.path = []
         self.current_waypoint = None
         self.time_start_hold = None
         self.state = WaypointState.HOLD
         self.offboard_active = False
         self.last_position_ned = None
+        self.is_enabled = False
+
+    async def add_waypoint(self, waypoint):
+        self.path.append(waypoint)
+
+    async def run_path(self, path):
+        """Set the path and enable automatic waypoint processing."""
+        self.path = path
+        self.is_enabled = True
+        logging.info(f"WaypointSystem // run_path - Enabled with {len(path)} waypoints")
+
+    # Function to wait until is_enabled is false
+    async def wait_until_disabled(self):
+        # Initial 1s wait to ensure the path is set
+        await asyncio.sleep(1)
+        while self.is_enabled:
+            await asyncio.sleep(0.5)
 
     async def command_goto(self, waypoint):
         # Only allow if in hold
@@ -58,7 +76,23 @@ class WaypointSystem:
             logging.error(f"WaypointSystem // Invalid state: {self.state}")
     
     async def tick_hold(self, context: QuadContext):
-        pass
+        # Check if automatic path processing is enabled
+        if not self.is_enabled:
+            return
+        
+        # Check if there are waypoints in the path
+        if len(self.path) == 0:
+            # Path is empty, disable automatic processing
+            self.is_enabled = False
+            logging.info(f"WaypointSystem // HOLD - Path complete, disabling automatic processing")
+            return
+        
+        # Pull the next waypoint from the path (index 0)
+        self.current_waypoint = self.path.pop(0)
+        logging.info(f"WaypointSystem // HOLD - Pulled next waypoint from path ({len(self.path)} remaining)")
+        
+        # Transition to COMMAND_GOTO
+        self.state = WaypointState.COMMAND_GOTO
 
     async def tick_command_goto(self, context: QuadContext):
         logging.info(f"WaypointSystem // COMMAND_GOTO - Starting offboard mode")
@@ -100,11 +134,13 @@ class WaypointSystem:
         
         logging.info(f"WaypointSystem // GOTO - Distance to waypoint: {distance_m:.2f}m")
         
-        if distance_m < 0.5:
+        if distance_m < 0.3:
             logging.info(f"WaypointSystem // Reached waypoint!")
             self.state = WaypointState.REACHED
 
     async def tick_reached(self, context: QuadContext):
+
+        # Wait for hold time to settle
         
         logging.info(f"WaypointSystem // REACHED - Starting LED")
         
@@ -121,6 +157,7 @@ class WaypointSystem:
         
         self.current_waypoint = None
         self.state = WaypointState.HOLD
+        # When returning to HOLD, the tick_hold will automatically process the next waypoint if enabled
     
     
 
