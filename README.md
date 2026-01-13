@@ -1,6 +1,8 @@
 # SkyCanvas
 Long exposure photographs with automated Ardupilot Quad(s).
 
+![Screenshot](docs/assets/screenshot_main_001.png)
+
 ## Development Setup
 
 This project uses [uv](https://github.com/astral-sh/uv) for Python package management and includes MAVSDK-Python as a git submodule for better agent/developer experience.
@@ -110,7 +112,7 @@ uv sync
 - [x] LED Control w/ Viz (mock)]
 - [x] 3D Viz
 - [x] Long Exposure viz (2d and 3d)
-- [ ] Follow Waypoint path
+- [x] Follow Waypoint path
 - [x] Track color in waypoints
 - [ ] Add Low Poly Mesh desert floor / grid
 ### Future Ideas:
