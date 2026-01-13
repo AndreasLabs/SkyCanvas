@@ -8,6 +8,7 @@ from quad_app.context import QuadContext
 from quad_app.quad_rerun import QuadRerun
 from quad_app.systems import LED
 from quad_app.waypoints import WaypointSystem, Waypoint
+from quad_app.patterns import generate_smiley, PatternConfig
 class QuadOptions:
     def __init__(self, config: dict):
         self.connection_string = config['connection_string']
@@ -140,60 +141,9 @@ class Quad:
         # Wait for 10 seconds
         await asyncio.sleep(5)
 
-        # Draw a smile face pattern using x (NED[0]) and z (NED[2]) axes
-        import math
-        path = []
-        
-        # Face outline - circular (24 points - doubled resolution)
-        face_center = [2.5, 0.0, -4.5]
-        face_radius = 2.3
-        for i in range(24):
-            angle = (i / 24) * 2 * math.pi
-            x = face_center[0] + face_radius * math.cos(angle)
-            z = face_center[2] + face_radius * math.sin(angle)
-            path.append(Waypoint(
-                ned=[x, 0.0, z],
-                color=[1.0, 1.0, 0.0]  # Yellow for face
-            ))
-        
-        # Left eye - small circle (8 points - doubled resolution)
-        # Eyes at TOP of face (MORE negative z = higher altitude in NED)
-        left_eye_center = [1.7, 0.0, -5.8]
-        eye_radius = 0.3
-        for i in range(8):
-            angle = (i / 8) * 2 * math.pi
-            x = left_eye_center[0] + eye_radius * math.cos(angle)
-            z = left_eye_center[2] + eye_radius * math.sin(angle)
-            path.append(Waypoint(
-                ned=[x, 0.0, z],
-                color=[0.0, 0.0, 1.0]  # Blue for eyes
-            ))
-        
-        # Right eye - small circle (8 points - doubled resolution)
-        right_eye_center = [3.3, 0.0, -5.8]
-        for i in range(8):
-            angle = (i / 8) * 2 * math.pi
-            x = right_eye_center[0] + eye_radius * math.cos(angle)
-            z = right_eye_center[2] + eye_radius * math.sin(angle)
-            path.append(Waypoint(
-                ned=[x, 0.0, z],
-                color=[0.0, 0.0, 1.0]  # Blue for eyes
-            ))
-        
-        # Smile - curved arc (16 points - doubled resolution)
-        # Smile at BOTTOM of face (LESS negative z = lower altitude in NED)
-        # Arc from 180 to 360 degrees creates downward-curving smile (happy face)
-        smile_center = [2.5, 0.0, -3.2]
-        smile_radius = 1.2
-        for i in range(16):
-            angle = math.radians(180 + i * 12)  # 180 to 360 degrees (12° increments) - curves up toward higher altitude
-            x = smile_center[0] + smile_radius * math.cos(angle)
-            z = smile_center[2] + smile_radius * math.sin(angle)
-            path.append(Waypoint(
-                ned=[x, 0.0, z],
-                color=[1.0, 0.0, 0.0]  # Red for smile
-            ))
-        
+        # Generate smile face pattern using patterns module
+        config = PatternConfig(center=(2.5, 0.0, -4.5), scale=1.0)
+        path = generate_smiley(config)
         logging.info(f"Quad // Created smile face path with {len(path)} waypoints")
         await self.waypoints.run_path(path) 
         await self.waypoints.wait_until_disabled()

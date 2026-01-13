@@ -1,0 +1,17 @@
+[project]
+name = "depth_capture"
+version = "0.1.0"
+description = "Monocular depth estimation to PLY pointcloud converter"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "torch>=2.0",
+    "opencv-python>=4.8",
+    "timm>=0.9",
+    "numpy>=1.26",
+    "plyfile>=1.0",
+    "open3d>=0.18",
+]
+
+[project.scripts]
+view-ply = "depth_capture.viewer:main"
