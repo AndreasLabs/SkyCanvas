@@ -53,6 +53,7 @@ Thumbs.db
 *.ckpt
 *.h5
 *.pb
+*.ts
 
 # Large data files
 *.ply
