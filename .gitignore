@@ -44,6 +44,29 @@ Thumbs.db
 # Project specific
 *.mcap
 
+# Model weights (large files)
+*.pt
+*.pth
+*.onnx
+*.bin
+*.safetensors
+*.ckpt
+*.h5
+*.pb
+
+# Large data files
+*.ply
+*.pcd
+*.las
+*.laz
+
+# Depth capture outputs (regeneratable)
+depth_capture/data/
+data/*/depth_out/
+
+# Downloaded model caches
+depth_capture/mobileclip_blt.ts
+
 
 # All sub __pycache__
 */__pycache__/

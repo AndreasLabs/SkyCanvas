@@ -8,19 +8,27 @@ from quad_app.context import QuadContext
 from quad_app.quad_rerun import QuadRerun
 from quad_app.systems import LED
 from quad_app.waypoints import WaypointSystem, Waypoint
-from quad_app.patterns import generate_smiley, PatternConfig
+from quad_app.missions import get_mission
 class QuadOptions:
     def __init__(self, config: dict):
         self.connection_string = config['connection_string']
         self.telemetry_rate_hz = config['telemetry_rate_hz']
     
 class Quad:
-    def __init__(self, options: QuadOptions):
+    def __init__(self, options: QuadOptions, mission_config: dict = None):
         logging.info("Quad // Initializing")
         self.options = options
         self.context = QuadContext()
         self.waypoints = WaypointSystem()
         self.quad_rerun = QuadRerun("quad_app", self.context)
+        
+        # Load mission from config
+        if mission_config is None:
+            mission_config = {}
+        
+        mission_name = mission_config.get('name', 'smiley')
+        logging.info(f"Quad // Loading mission: {mission_name}")
+        self.mission = get_mission(mission_name, mission_config)
 
 
     async def connect(self):
@@ -123,40 +131,10 @@ class Quad:
 
     
     async def fly_mission(self):
-        logging.info("Quad // Flying mission")
+        """Execute the loaded mission."""
+        logging.info(f"Quad // Flying mission: {self.mission.name}")
         await self.wait_for_ready()
         await self.arm()
         
-        # Red LED for takeoff (hop)
-        logging.info("Quad // Setting LED to RED for takeoff")
-        self.context.led_system.rgb = [1.0, 0.0, 0.0]  # Red
-        self.context.led_system.is_on = True
-        
-        await self.takeoff()
-        
-        # Green LED while flying/hovering
-        logging.info("Quad // Setting LED to GREEN while flying")
-        self.context.led_system.rgb = [0.0, 1.0, 0.0]  # Green
-        self.context.led_system.is_on = False
-        # Wait for 10 seconds
-        await asyncio.sleep(5)
-
-        # Generate smile face pattern using patterns module
-        config = PatternConfig(center=(2.5, 0.0, -4.5), scale=1.0)
-        path = generate_smiley(config)
-        logging.info(f"Quad // Created smile face path with {len(path)} waypoints")
-        await self.waypoints.run_path(path) 
-        await self.waypoints.wait_until_disabled()
-        await asyncio.sleep(2)
-        # Blue LED for landing
-        logging.info("Quad // Setting LED to BLUE for landing")
-        self.context.led_system.rgb = [0.0, 0.0, 1.0]  # Blue
-        await self.land()
-        
-        # Wait for 10 seconds
-        await asyncio.sleep(10)
-        
-        # Turn off LED after disarm
-        logging.info("Quad // Turning LED OFF")
-        self.context.led_system.is_on = False
-        await self.disarm()
+        # Delegate to the mission
+        await self.mission.run(self.context, self.waypoints)

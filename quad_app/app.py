@@ -13,7 +13,11 @@ class QuadApp:
         self.ensure_fresh_sitl = ensure_fresh_sitl
         self.lua = LuaRuntime(unpack_returned_tuples=True)
         self.config = self.load_lua_config("config.lua")
-        self.quad = Quad(QuadOptions(self.config['quad']))
+        
+        # Get mission config if available
+        mission_config = self.config.get('mission', {})
+        
+        self.quad = Quad(QuadOptions(self.config['quad']), mission_config)
     def load_lua_config(self, config_path: str):
         with open(config_path, 'r') as file:
             config_content = file.read()
