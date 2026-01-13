@@ -6,254 +6,97 @@ from plyfile import PlyData, PlyElement
 from pathlib import Path
 
 
-def save_depth_image(depth_map: np.ndarray, output_path: str) -> None:
-    """Save depth map as a colorized debug image.
-    
-    Args:
-        depth_map: Depth map (HxW, float32)
-        output_path: Path to save the depth image
-    """
-    # Normalize to 0-255
-    depth_normalized = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min() + 1e-8)
-    depth_uint8 = (depth_normalized * 255).astype(np.uint8)
-    
-    # Apply colormap for better visualization
-    depth_colored = cv2.applyColorMap(depth_uint8, cv2.COLORMAP_MAGMA)
-    
-    # Save
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    cv2.imwrite(str(output_path), depth_colored)
-    
-    print(f"Saved depth visualization to {output_path}")
-
-
-def downsample_points(
-    points: np.ndarray,
-    colors: np.ndarray,
-    max_points: int | None = None,
-    step: int | None = None
-) -> tuple[np.ndarray, np.ndarray]:
-    """Downsample pointcloud to reduce number of points.
-    
-    Args:
-        points: Nx3 array of XYZ coordinates
-        colors: Nx3 array of RGB values
-        max_points: Maximum number of points to keep (uses uniform sampling)
-        step: Take every Nth point (alternative to max_points)
-        
-    Returns:
-        Downsampled (points, colors) tuple
-    """
-    n_points = len(points)
-    
-    if step is not None and step > 1:
-        # Use step-based downsampling
-        indices = np.arange(0, n_points, step)
-        print(f"Downsampling with step={step}: {n_points} -> {len(indices)} points")
-        return points[indices], colors[indices]
-    
-    if max_points is not None and max_points < n_points:
-        # Use uniform sampling to get max_points
-        indices = np.linspace(0, n_points - 1, max_points, dtype=int)
-        print(f"Downsampling to max_points={max_points}: {n_points} -> {len(indices)} points")
-        return points[indices], colors[indices]
-    
-    return points, colors
-
-
-def crop_by_depth(
-    points: np.ndarray,
-    colors: np.ndarray,
-    crop_min: float | None = None,
-    crop_max: float | None = None
-) -> tuple[np.ndarray, np.ndarray]:
-    """Crop/filter points by depth (Z) range.
-    
-    Removes points outside the specified depth range. Since Z is negative
-    (camera looks into -Z), we compare absolute depth values.
-    
-    Args:
-        points: Nx3 array of XYZ coordinates
-        colors: Nx3 array of RGB values
-        crop_min: Minimum depth to keep (removes points closer than this)
-        crop_max: Maximum depth to keep (removes points farther than this)
-        
-    Returns:
-        Filtered (points, colors) tuple
-    """
-    if crop_min is None and crop_max is None:
-        return points, colors
-    
-    n_points_before = len(points)
-    
-    # Z is negative, so depth = -Z
-    depth = -points[:, 2]
-    
-    # Create mask for points within range
-    mask = np.ones(len(points), dtype=bool)
-    
-    if crop_min is not None:
-        mask &= depth >= crop_min
-    
-    if crop_max is not None:
-        mask &= depth <= crop_max
-    
-    points_filtered = points[mask]
-    colors_filtered = colors[mask]
-    
-    n_points_after = len(points_filtered)
-    crop_range = f"{crop_min if crop_min else 0}m - {crop_max if crop_max else '∞'}m"
-    print(f"Cropped by depth ({crop_range}): {n_points_before} -> {n_points_after} points ({n_points_before - n_points_after} removed)")
-    
-    return points_filtered, colors_filtered
-
-
 def depth_to_pointcloud(
     image: np.ndarray,
     depth_map: np.ndarray,
-    focal_length: float | None = None,
     depth_min: float = 0.5,
     depth_max: float = 10.0
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert depth map and RGB image to 3D pointcloud.
     
-    Args:
-        image: RGB image (HxWx3, BGR, uint8)
-        depth_map: Depth map (HxW, float32) - MiDaS outputs inverse relative depth
-        focal_length: Camera focal length in pixels (None = auto based on image width)
-        depth_min: Minimum depth in meters (closest objects)
-        depth_max: Maximum depth in meters (furthest objects)
-        
-    Returns:
-        Tuple of (points, colors) where:
-            - points: Nx3 array of XYZ coordinates
-            - colors: Nx3 array of RGB values (0-255, uint8)
+    Uses pinhole camera model with ~53° FOV.
+    MiDaS outputs inverse relative depth (higher = closer).
     """
     height, width = depth_map.shape
+    focal_length = width  # ~53° FOV
     
-    # Auto focal length: assume ~55° horizontal FOV (typical camera)
-    if focal_length is None:
-        focal_length = width * 1.0  # f ≈ width gives ~53° FOV
-    
-    # Create pixel coordinate grids
     u, v = np.meshgrid(np.arange(width), np.arange(height))
     
-    # MiDaS outputs inverse relative depth (higher = closer)
-    # Normalize to 0-1 range
-    depth_normalized = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min() + 1e-8)
+    # Normalize and map to metric depth
+    depth_norm = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min() + 1e-8)
+    depth = depth_min + (1.0 - depth_norm) * (depth_max - depth_min)
     
-    # Map to metric depth range: high disparity (1) = close (depth_min), low (0) = far (depth_max)
-    depth = depth_min + (1.0 - depth_normalized) * (depth_max - depth_min)
-    
-    # Back-project to 3D (pinhole camera model)
-    cx = width / 2.0
-    cy = height / 2.0
-    
+    # Back-project to 3D
+    cx, cy = width / 2.0, height / 2.0
     x = (u - cx) * depth / focal_length
-    y = -(v - cy) * depth / focal_length  # Negative Y so up is up
-    z = -depth  # Negative Z so we view from the front
+    y = -(v - cy) * depth / focal_length
+    z = -depth
     
-    # Stack into Nx3 point array
     points = np.stack([x.flatten(), y.flatten(), z.flatten()], axis=1)
-    
-    # Get RGB colors (convert BGR to RGB)
     colors = image.reshape(-1, 3)[:, ::-1]  # BGR to RGB
     
     return points, colors
 
 
-def export_to_ply(
+def filter_points(
     points: np.ndarray,
     colors: np.ndarray,
-    output_path: str
-) -> None:
-    """Export pointcloud to PLY file.
+    crop_min: float | None = None,
+    crop_max: float | None = None,
+    step: int | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    """Filter and downsample points."""
+    # Crop by depth
+    if crop_min is not None or crop_max is not None:
+        depth = -points[:, 2]
+        mask = np.ones(len(points), dtype=bool)
+        if crop_min:
+            mask &= depth >= crop_min
+        if crop_max:
+            mask &= depth <= crop_max
+        points, colors = points[mask], colors[mask]
+        print(f"  Cropped to {len(points)} points")
     
-    Args:
-        points: Nx3 array of XYZ coordinates
-        colors: Nx3 array of RGB values (0-255, uint8)
-        output_path: Path to output PLY file
-    """
-    # Ensure colors are uint8
-    colors = colors.astype(np.uint8)
+    # Downsample
+    if step and step > 1:
+        indices = np.arange(0, len(points), step)
+        points, colors = points[indices], colors[indices]
+        print(f"  Downsampled to {len(points)} points")
     
-    # Create structured array for PLY
-    vertex_data = np.zeros(
-        len(points),
-        dtype=[
-            ('x', 'f4'),
-            ('y', 'f4'),
-            ('z', 'f4'),
-            ('red', 'u1'),
-            ('green', 'u1'),
-            ('blue', 'u1')
-        ]
-    )
+    return points, colors
+
+
+def export_to_ply(points: np.ndarray, colors: np.ndarray, output_path: str) -> None:
+    """Export pointcloud to PLY file."""
+    vertex = np.zeros(len(points), dtype=[
+        ('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
+        ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')
+    ])
+    vertex['x'], vertex['y'], vertex['z'] = points[:, 0], points[:, 1], points[:, 2]
+    vertex['red'], vertex['green'], vertex['blue'] = colors[:, 0], colors[:, 1], colors[:, 2]
     
-    vertex_data['x'] = points[:, 0]
-    vertex_data['y'] = points[:, 1]
-    vertex_data['z'] = points[:, 2]
-    vertex_data['red'] = colors[:, 0]
-    vertex_data['green'] = colors[:, 1]
-    vertex_data['blue'] = colors[:, 2]
-    
-    # Create PLY element
-    vertex_element = PlyElement.describe(vertex_data, 'vertex')
-    
-    # Write PLY file
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    PlyData([vertex_element]).write(str(output_path))
-    
-    print(f"Exported {len(points)} points to {output_path}")
+    PlyData([PlyElement.describe(vertex, 'vertex')]).write(str(output_path))
+    print(f"  Exported {len(points)} points")
 
 
 def create_pointcloud_from_depth(
     image: np.ndarray,
     depth_map: np.ndarray,
     output_path: str,
-    focal_length: float | None = None,
     depth_min: float = 0.5,
     depth_max: float = 10.0,
-    max_points: int | None = None,
     downsample_step: int | None = None,
     save_depth: bool = False,
     crop_min: float | None = None,
-    crop_max: float | None = None
+    crop_max: float | None = None,
+    **kwargs  # Ignore extra args
 ) -> None:
-    """Complete pipeline: depth + RGB -> PLY pointcloud.
-    
-    Args:
-        image: RGB image (HxWx3, BGR, uint8)
-        depth_map: Depth map (HxW, float32)
-        output_path: Path to output PLY file
-        focal_length: Camera focal length in pixels (None = auto)
-        depth_min: Minimum depth in meters (closest objects)
-        depth_max: Maximum depth in meters (furthest objects)
-        max_points: Maximum number of points to export (None = no limit)
-        downsample_step: Take every Nth point (None = no step)
-        save_depth: Save depth visualization image for debugging
-        crop_min: Remove points closer than this depth (None = no min crop)
-        crop_max: Remove points farther than this depth (None = no max crop)
-    """
-    # Optionally save depth visualization
+    """Pipeline: depth + RGB -> filtered PLY pointcloud."""
     if save_depth:
-        depth_img_path = Path(output_path).with_suffix('.depth.png')
-        save_depth_image(depth_map, str(depth_img_path))
+        depth_norm = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min() + 1e-8)
+        depth_img = cv2.applyColorMap((depth_norm * 255).astype(np.uint8), cv2.COLORMAP_MAGMA)
+        cv2.imwrite(str(Path(output_path).with_suffix('.depth.png')), depth_img)
     
-    print("Converting depth map to pointcloud...")
-    print(f"  Depth range: {depth_min}m - {depth_max}m")
-    print(f"  Focal length: {focal_length if focal_length else 'auto (image width)'}")
-    points, colors = depth_to_pointcloud(image, depth_map, focal_length, depth_min, depth_max)
-    
-    print(f"Generated pointcloud with {len(points)} points")
-    
-    # Crop by depth if requested
-    points, colors = crop_by_depth(points, colors, crop_min, crop_max)
-    
-    # Downsample if requested
-    points, colors = downsample_points(points, colors, max_points, downsample_step)
-    
-    export_to_ply(points, colors, output_path)
+    points, colors = depth_to_pointcloud(image, depth_map, depth_min, depth_max)
+    points, colors = filter_points(points, colors, crop_min, crop_max, downsample_step)
+    export_to_ply(points, colors.astype(np.uint8), output_path)
