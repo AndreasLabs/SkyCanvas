@@ -11,13 +11,18 @@ from quad_app.waypoints import Waypoint
 def generate_from_pointcloud(config: PointcloudConfig) -> list[Waypoint]:
     """Generate waypoints from a PLY pointcloud file.
     
-    The pointcloud is mapped to NED coordinates:
-    - X from PLY -> North (NED X)
-    - Y from PLY -> East (NED Y), scaled by depth_scale
-    - Z from PLY -> Down (NED Z, inverted for altitude)
+    The PLY coordinate system (from depth_capture/export_ply.py):
+    - X = horizontal in image (left/right)
+    - Y = vertical in image (up is positive)
+    - Z = -depth (negative values, more negative = farther)
     
-    When depth_scale = 0, all points are projected to East=0 (flat 2D image).
-    When depth_scale > 0, depth creates a 2.5D relief effect.
+    Mapped to NED flight coordinates:
+    - PLY X -> North (horizontal movement)
+    - PLY Y -> Down (inverted: up in image = higher altitude = more negative Down)
+    - PLY Z -> East (depth for 2.5D relief, scaled by depth_scale)
+    
+    When depth_scale = 0, all points project to East=0 (flat 2D image plane).
+    When depth_scale > 0, depth creates a 2.5D relief effect in East direction.
     
     Args:
         config: Pointcloud configuration including file path and parameters
@@ -70,35 +75,42 @@ def generate_from_pointcloud(config: PointcloudConfig) -> list[Waypoint]:
     
     logging.info(f"Loaded {len(points)} points from pointcloud")
     
-    # Downsample based on density
-    sampled_indices = _downsample_pointcloud(points, config.density)
-    points = points[sampled_indices]
+    # Normalize pointcloud BEFORE downsampling so density works in scaled space
+    points_normalized = _normalize_pointcloud(points, config.scale)
+    
+    # Downsample based on density (now in scaled meters)
+    sampled_indices = _downsample_pointcloud(points_normalized, config.density)
+    points_normalized = points_normalized[sampled_indices]
     colors = colors[sampled_indices]
     
-    logging.info(f"Downsampled to {len(points)} points (density={config.density}m)")
+    logging.info(f"Downsampled to {len(points_normalized)} points (density={config.density}m)")
     
-    # Normalize pointcloud to center it and scale appropriately
-    points_centered = _normalize_pointcloud(points, config.scale)
+    # Convert center config to tuple (handle Lua tables converted to dicts)
+    center = _ensure_tuple(config.center, default=(0.0, 0.0, -10.0))
     
     # Map to NED coordinates
+    # PLY: X=horizontal, Y=vertical(up+), Z=-depth
+    # NED: North, East, Down (positive down = lower altitude)
     waypoints = []
-    for i, (point, color) in enumerate(zip(points_centered, colors)):
-        # Map pointcloud coordinates to NED
-        # X -> North, Y -> depth (East with scale), Z -> Down (inverted)
-        north = config.center[0] + point[0]
+    for i, (point, color) in enumerate(zip(points_normalized, colors)):
+        # PLY X -> North (horizontal in image -> horizontal in flight)
+        north = center[0] + point[0]
         
-        # Apply depth scaling
+        # PLY Z -> East (depth creates 2.5D relief effect)
+        # Z is negative in PLY (more negative = farther), normalize to 0-1 range
         if config.depth_scale > 0:
-            # Normalize depth to 0-1 range and scale
-            depth_normalized = (point[1] - points_centered[:, 1].min()) / (
-                points_centered[:, 1].max() - points_centered[:, 1].min() + 1e-8
-            )
-            east = config.center[1] + depth_normalized * config.depth_scale
+            z_min = points_normalized[:, 2].min()
+            z_max = points_normalized[:, 2].max()
+            z_range = z_max - z_min + 1e-8
+            depth_normalized = (point[2] - z_min) / z_range
+            east = center[1] + depth_normalized * config.depth_scale
         else:
             # Flat 2D projection
-            east = config.center[1]
+            east = center[1]
         
-        down = config.center[2] - point[2]  # Invert Z for altitude
+        # PLY Y -> Down (inverted: positive Y in PLY = up = more negative Down)
+        # In NED, negative Down = higher altitude
+        down = center[2] - point[1]
         
         waypoints.append(Waypoint(
             ned=[north, east, down],
@@ -108,6 +120,23 @@ def generate_from_pointcloud(config: PointcloudConfig) -> list[Waypoint]:
     
     logging.info(f"Generated {len(waypoints)} waypoints from pointcloud")
     return waypoints
+
+
+def _ensure_tuple(value, default):
+    """Convert various formats to tuple (handles Lua tables, dicts, lists)."""
+    if value is None:
+        return default
+    if isinstance(value, tuple):
+        return value
+    if isinstance(value, list):
+        return tuple(value)
+    if isinstance(value, dict):
+        # Lua tables become dicts with numeric keys {1: x, 2: y, 3: z}
+        try:
+            return tuple(value[i] for i in sorted(value.keys()))
+        except (KeyError, TypeError):
+            return default
+    return default
 
 
 def _downsample_pointcloud(points: np.ndarray, density: float) -> np.ndarray:

@@ -53,11 +53,21 @@ class PointcloudMission(Mission):
 
         # Load pointcloud configuration from mission config
         ply_path = self.config.get('ply_path', 'data/test_images/depth_out/color_car1.ply')
-        center = tuple(self.config.get('center', [5.0, 0.0, -5.0]))
+        center_raw = self.config.get('center', [0.0, 0.0, -10.0])
+        # Handle both lists and Lua-converted dicts
+        if isinstance(center_raw, dict):
+            center = tuple(center_raw.get(i, center_raw.get(str(i), 0)) for i in range(1, 4))
+        elif isinstance(center_raw, (list, tuple)):
+            center = tuple(center_raw)
+        else:
+            center = (0.0, 0.0, -10.0)
+        
         scale = self.config.get('scale', 3.0)
         density = self.config.get('density', 0.2)
         depth_scale = self.config.get('depth_scale', 1.0)
         hold_time = self.config.get('hold_time', 0.3)
+        
+        logging.info(f"PointcloudMission // Config: center={center}, scale={scale}, density={density}")
         
         # Generate pointcloud pattern
         pattern_config = PointcloudConfig(

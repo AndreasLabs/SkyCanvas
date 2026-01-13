@@ -4,7 +4,7 @@ config = {
 
 config.quad = {
     connection_string = "tcpout://127.0.0.1:5760",
-    telemetry_rate_hz = 50
+    telemetry_rate_hz = 15
 }
 
 config.mission = {
@@ -12,11 +12,11 @@ config.mission = {
     
     -- Pointcloud mission settings
     ply_path = "data/test_images/depth_out/color_car1.ply",
-    center = {0.0, 0.0, -15.0},  -- NED: north, east, down (down is negative for altitude)
-    scale = 10.0,                 -- Pattern size in meters
-    density = 0.4,               -- Minimum distance between waypoints (meters)
-    depth_scale = 0.1,           -- Depth range: 0 = flat 2D, >0 = 2.5D relief effect
-    hold_time = 0.1,             -- Time to hold LED at each waypoint (seconds)
+    center = {0.0, 0.0, -25.0},  -- NED: north, east, down (down is negative for altitude)
+    scale = 25.0,                 -- Pattern size in meters
+    density = 0.1,               -- Minimum distance between waypoints (meters)
+    depth_scale = 1.0,           -- Depth range: 0 = flat 2D, >0 = 2.5D relief effect
+    hold_time = 0.15,             -- Time to hold LED at each waypoint (seconds)
 }
 
 config.depth = {
@@ -26,7 +26,7 @@ config.depth = {
     -- Processing
     model = "DPT_Large",
     crop_size = 512,
-    downsample_step = 100,
+    downsample_step = 50,
     
     -- Segmentation (YOLOE - open-vocabulary)
     segment = "car",  -- Text prompt for object selection (e.g., "car", "person", "dog")
