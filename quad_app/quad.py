@@ -83,6 +83,7 @@ class Quad:
         logging.info("Quad // Waiting for armed confirmation")
         async for armed in self.context.mav_system.telemetry.armed():
             if armed:
+                
                 logging.info("Quad // Armed")
                 break
             else:
