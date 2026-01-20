@@ -115,7 +115,7 @@ uv sync
 - [x] Follow Waypoint path
 - [x] Track color in waypoints
 - [ ] Add Low Poly Mesh desert floor / grid
-- [ ] Add Solid paths (waypoints with solid color)
+- [x] Add Solid paths (waypoints with solid color)
 - [ ] Add Wait for takeoff instead of time based
 - [ ] Increase waypoint accuracy (hold point improvement)
 - [ ] Auto stop after landing
