@@ -143,7 +143,8 @@ def generate_from_pointcloud() -> list[Waypoint]:
         waypoints.append(Waypoint(
             ned=[north, east, down],
             color=[float(color[0]), float(color[1]), float(color[2])],
-            hold_time=hold_time
+            hold_time=hold_time,
+            segment_id=1 # For now just set to 1 for all points so its one giant line
         ))
     
     logging.info(f"Generated {len(waypoints)} waypoints from pointcloud")

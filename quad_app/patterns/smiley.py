@@ -31,6 +31,7 @@ def generate_smiley() -> list[Waypoint]:
     
     # Face outline - circular (24 points)
     face_radius = 2.3 * scale
+    segment_id = 0
     for i in range(24):
         angle = (i / 24) * 2 * math.pi
         x = center[0] + face_radius * math.cos(angle)
@@ -38,11 +39,13 @@ def generate_smiley() -> list[Waypoint]:
         path.append(Waypoint(
             ned=[x, center[1], z],
             color=[1.0, 1.0, 0.0],  # Yellow for face
-            hold_time=hold_time
+            hold_time=hold_time,
+            segment_id=segment_id
         ))
     
     # Left eye - small circle (8 points)
     # Eyes at TOP of face (MORE negative z = higher altitude in NED)
+    segment_id += 1
     left_eye_offset = [-0.8 * scale, 0.0, -1.3 * scale]
     eye_radius = 0.3 * scale
     for i in range(8):
@@ -52,10 +55,12 @@ def generate_smiley() -> list[Waypoint]:
         path.append(Waypoint(
             ned=[x, center[1], z],
             color=[0.0, 0.0, 1.0],  # Blue for eyes
-            hold_time=hold_time
+            hold_time=hold_time,
+            segment_id=segment_id
         ))
     
     # Right eye - small circle (8 points)
+    segment_id += 1
     right_eye_offset = [0.8 * scale, 0.0, -1.3 * scale]
     for i in range(8):
         angle = (i / 8) * 2 * math.pi
@@ -64,12 +69,14 @@ def generate_smiley() -> list[Waypoint]:
         path.append(Waypoint(
             ned=[x, center[1], z],
             color=[0.0, 0.0, 1.0],  # Blue for eyes
-            hold_time=hold_time
+            hold_time=hold_time,
+            segment_id=segment_id
         ))
     
     # Smile - curved arc (16 points)
     # Smile at BOTTOM of face (LESS negative z = lower altitude in NED)
     # Arc from 180 to 360 degrees creates downward-curving smile (happy face)
+    segment_id += 1
     smile_offset = [0.0, 0.0, 1.3 * scale]
     smile_radius = 1.2 * scale
     for i in range(16):
@@ -79,7 +86,8 @@ def generate_smiley() -> list[Waypoint]:
         path.append(Waypoint(
             ned=[x, center[1], z],
             color=[1.0, 0.0, 0.0],  # Red for smile
-            hold_time=hold_time
+            hold_time=hold_time,
+            segment_id=segment_id
         ))
     
     return path
