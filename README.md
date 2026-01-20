@@ -119,5 +119,32 @@ uv sync
 - [ ] Add Wait for takeoff instead of time based
 - [ ] Increase waypoint accuracy (hold point improvement)
 - [ ] Auto stop after landing
+- [ ] SVG Importer
+- [ ] 3D Path Importer (blender sourced)
 ### Future Ideas:
-- Render pointclouds / depth clouds using 2.5d - draw points along depth.
+- [x] Render pointclouds / depth clouds using 2.5d - draw points along depth.
+
+
+## Stage 2 - Flight Ready
+- [ ] LED Control
+  - [ ] Optional Replacement: Develop Mavlink based LED Control 
+  - [ ] Develop ESP32 based LED Controller that uses WiFi or 900mhz link
+  - [ ] Develop Connection to LED Controller w/ hook up to software LED component
+- [ ] Rust Re-write
+  - [ ] Basic project setup
+  - [ ] Ardupilot connection w/ POC state reading / Status message logger
+  - [ ] MVP Rerun logger w/ Status Messages (Text Log)
+  - [ ] Port over all UAV state reading 
+  - [ ] Port over all Rerun Logging
+  - [ ] Port over pattern API w/ generators
+  - [ ] Port over waypoint system
+  - [ ] Port over mission system
+  - [ ] Docker compose SIL setup / tear down
+- [ ] Flight Test Campaign
+  - [ ] Arm/Disarm Test - Arm the quad - set LEDs - disarm
+  - [ ] Motor Spin up test
+  - [ ] Hop test
+  - [ ] Single Waypoint test
+  - [ ] Multi-waypoint test
+  - [ ] Square pattern test
+  - [ ] Smiley pattern test
