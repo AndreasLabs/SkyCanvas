@@ -3,12 +3,14 @@
 from quad_app.missions.base import Mission
 from quad_app.missions.smiley import SmileyMission
 from quad_app.missions.pointcloud import PointcloudMission
+from quad_app.missions.spiral import SpiralMission
 
 
 # Mission registry mapping names to mission classes
 MISSIONS = {
     "smiley": SmileyMission,
     "pointcloud": PointcloudMission,
+    "spiral": SpiralMission,
 }
 
 
@@ -37,6 +39,7 @@ __all__ = [
     "Mission",
     "SmileyMission",
     "PointcloudMission",
+    "SpiralMission",
     "get_mission",
     "MISSIONS",
 ]

@@ -8,15 +8,22 @@ config.quad = {
 }
 
 config.mission = {
-    name = "pointcloud",  -- Options: "smiley", "pointcloud"
+    name = "spiral",  -- Options: "smiley", "pointcloud", "spiral"
     
-    -- Pointcloud mission settings
-    ply_path = "data/test_images/depth_out/color_zipline1.ply",
+    -- Spiral mission settings
     center = {0.0, 0.0, -10.0},  -- NED: north, east, down (down is negative for altitude)
-    scale = 4.0,                 -- Pattern size in meters
-    density = 0.01,               -- Minimum distance between waypoints (meters)
-    depth_scale = 0,           -- Depth range: 0 = flat 2D, >0 = 2.5D relief effect
-    hold_time = 0.02,             -- Time to hold LED at each waypoint (seconds)
+    scale = 1.0,                 -- Pattern size in meters
+    hold_time = 0.1,             -- Time to hold LED at each waypoint (seconds)
+    spiral_turns = 3,            -- Number of complete rotations
+    spiral_points = 16,          -- Points per turn (total = turns × points)
+    
+    -- Smiley mission settings (commented out)
+    -- (uses center, scale, hold_time from above)
+    
+    -- Pointcloud mission settings (commented out)
+    -- ply_path = "data/test_images/depth_out/color_zipline1.ply",
+    -- density = 0.01,               -- Minimum distance between waypoints (meters)
+    -- depth_scale = 0,           -- Depth range: 0 = flat 2D, >0 = 2.5D relief effect
 }
 
 config.depth = {
