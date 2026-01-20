@@ -56,3 +56,4 @@ class DockerManager:
         return self.docker.compose.logs(services=[service], tail=str(tail))
 
 
+
