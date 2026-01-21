@@ -6,3 +6,4 @@ pub trait MavTaskTrait{
 }
 
 pub mod mavtask_print;
+pub mod mavtask_status_text;
