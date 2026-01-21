@@ -12,7 +12,7 @@
                                             RwLock<State>
                                             Queue<MavCommands>
                                                   I
-[MavlinkIO] -> <MsgName, MavlinkMessage> -> [MavTransformers]
+[MavlinkIO] -> <MsgName, MavlinkMessage> -> [MavTasks]
             <- <MsgName, MavlinkMessage> <-
 
 ---- ^ QuadLink -- + -- QuadApp v -----  == Quad
@@ -22,3 +22,12 @@
                       I
 [Quad] -> Tick -> [Systems[]]
 ```
+
+## Quad App Systems:
+
+- Startup (one-shot)
+- Led Control (100hz)
+- Heartbeat (2hz)
+- Waypoint System (100hz)
+- TakeOff (one-shot)
+-

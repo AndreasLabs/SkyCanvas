@@ -1,0 +1,17 @@
+[package]
+name = "quad_app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.54", features = ["derive"] }
+log = "0.4.29"
+mavlink = "0.17.0"
+pretty_env_logger = "0.5.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+serde_yaml = "0.9.34"
+thiserror = "2.0.18"
+tokio = { version = "1.49.0", features = ["sync", "time"] }
+uuid = { version = "1.19.0", features = ["v4"] }
