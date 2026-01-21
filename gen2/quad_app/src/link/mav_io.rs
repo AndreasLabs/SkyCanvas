@@ -79,7 +79,10 @@ impl MavIO{
         let mav_con = self.mav_con.as_ref().unwrap();
         match mav_con.try_recv(){
             Ok(msg) => {
-                info!("SkyCanvas // MavIO // Received message: {:#?}", msg);
+                //info!("SkyCanvas // MavIO // Received message: {:#?}", msg);
+             //   let message_type = crate::common::mavlink_helpers::mavlink_msg_type_str(&msg.1.clone());
+                //trace!("SkyCanvas // MavIO // Received message: {}", message_type);
+                self.queues.send(msg.1)?;
                 Ok(())
             },
             Err(mavlink::error::MessageReadError::Io(e)) => {
@@ -98,6 +101,7 @@ impl MavIO{
             }
         }
     }
+  
     fn build_request_stream(&self) -> mavlink::ardupilotmega::MavMessage {
         #[allow(deprecated)]
         mavlink::ardupilotmega::MavMessage::REQUEST_DATA_STREAM(

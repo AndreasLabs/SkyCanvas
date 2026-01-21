@@ -12,9 +12,9 @@ use mavlink::ardupilotmega::MavMessage;
 use log::info;
 use std::sync::mpsc;
 
-use crate::link::mav_queues::MavQueues;
+use crate::{common::context::QuadAppContext, link::{mav_queues::MavQueues, tasks::{MavTaskTrait, mavtask_print::MavTaskPrint}}};
 pub struct QuadLink{
-    io: MavIO,
+
 
     queues: MavQueues,
     config: MavConfig,
@@ -23,11 +23,8 @@ pub struct QuadLink{
 impl QuadLink{
     pub fn new(config: MavConfig) -> Self {
         let queues = MavQueues::new();
-        let io = MavIO::new(config.clone(), queues.clone());
-       
+  
         Self {
-            io,
-
             queues,
             config,
         }
@@ -35,8 +32,26 @@ impl QuadLink{
 
     pub fn start(&mut self) -> Result<(), anyhow::Error> {
         info!("SkyCanvas // QuadLink // Starting");
-        self.io.start()?;
+        let context = QuadAppContext::new();
+        let config = self.config.clone();
+        let queues = self.queues.clone();
+        let context = context.clone();
+        let io_handle = std::thread::spawn(move || {
+            let mut io = MavIO::new(config.clone(), queues.clone());
+            io.start()
+        });
 
-        Ok(())
-    }
+        let config = self.config.clone();
+        let queues = self.queues.clone();
+        let context = context.clone();
+        let tasks_handle = std::thread::spawn(move || {
+            let mut tasks = MavTasks::new(config.clone(), queues.clone(), context.clone());
+            tasks.add_task(Box::new(MavTaskPrint::new()));
+            tasks.start()
+    });
+
+    io_handle.join().map_err(|e| anyhow::anyhow!("IO thread panicked: {:?}", e))??;
+    tasks_handle.join().map_err(|e| anyhow::anyhow!("Tasks thread panicked: {:?}", e))??;
+    Ok(())
+  }
 }
