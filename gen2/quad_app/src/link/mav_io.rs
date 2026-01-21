@@ -1,4 +1,4 @@
-use crate::link::mav_config::MavConfig;
+use crate::link::{mav_config::MavConfig, mav_queues::MavQueues};
 use anyhow::Error;
 
 use log::{debug, error, info, trace};
@@ -28,11 +28,12 @@ pub struct MavIO{
     config: MavConfig,
     mav_con: Option<Box<dyn mavlink::MavConnection<MavlinkMessageType> + Send + Sync>>,
     enabled: AtomicBool,
+    queues: MavQueues,
 }
 
 impl MavIO{
-    pub fn new(config: MavConfig) -> Self {
-        Self { config, mav_con: None, enabled: AtomicBool::new(false) }
+    pub fn new(config: MavConfig, queues: MavQueues) -> Self {
+        Self { config, mav_con: None, enabled: AtomicBool::new(false), queues }
     }   
 
     pub fn start(&mut self) -> Result<(), anyhow::Error> {
@@ -42,14 +43,14 @@ impl MavIO{
         self.mav_con = Some(Box::new(mav_con));
 
         info!("SkyCanvas // MavIO // Setting protocol version to V2");
-        let mut mav_con = self.mav_con.as_mut().unwrap();
+        let mav_con = self.mav_con.as_mut().unwrap();
         mav_con.set_protocol_version(mavlink::MavlinkVersion::V2);
         self.send_request_stream()?;
         info!("SkyCanvas // MavIO // Starting IO Tick loop");
         while self.enabled.load(Ordering::Relaxed) {
 
             // TODO: First on each tick - send out any commands that are sent to IO by the quad app
-
+            self.tick_send()?;
             // 2. Recv any messages from the MAVLink connection
             self.tick_recv()?;
 
@@ -60,7 +61,17 @@ impl MavIO{
         Ok(())
     }
 
-    fn tick_send(&self) -> Result<(), anyhow::Error> {
+    fn tick_send(&mut self) -> Result<(), anyhow::Error> {
+        let commands = match self.queues.recv() {
+            Ok(Some(msg)) => msg,
+            Ok(None) => return Ok(()),
+            Err(e) => {
+                error!("SkyCanvas // MavIO // Error receiving message: {}", e);
+                return Err(anyhow::anyhow!("Error receiving message: {}", e));
+            }
+        };
+        let mav_con = self.mav_con.as_ref().unwrap();
+        mav_con.send(&mavlink::MavHeader::default(), &commands)?;
         Ok(())
     }
 
@@ -104,7 +115,7 @@ impl MavIO{
         let mav_con = self.mav_con.as_ref().unwrap();
         let packet = self.build_request_stream();
         info!("SkyCanvas // MavIO // Sending request stream: {:#?}", packet);
-        mav_con.send(&mavlink::MavHeader::default(), &packet)?;
+        self.queues.send(packet)?;
         Ok(())
     }
 }

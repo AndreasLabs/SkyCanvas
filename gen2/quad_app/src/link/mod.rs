@@ -15,17 +15,20 @@ use std::sync::mpsc;
 use crate::link::mav_queues::MavQueues;
 pub struct QuadLink{
     io: MavIO,
-    tasks: MavTasks,
+
     queues: MavQueues,
     config: MavConfig,
 }
 
 impl QuadLink{
     pub fn new(config: MavConfig) -> Self {
+        let queues = MavQueues::new();
+        let io = MavIO::new(config.clone(), queues.clone());
+       
         Self {
-            io: MavIO::new(config.clone()),
-            tasks: MavTasks::new(),
-            queues: MavQueues::new(),
+            io,
+
+            queues,
             config,
         }
     }
