@@ -1,7 +1,8 @@
-use crate::link::MavlinkMessageType;
+use crate::link::mav_queues::MavQueues;
+use mavlink::ardupilotmega::MavMessage;
 
 pub enum QuadAppCommandType{
-    MavlinkRaw(MavlinkMessageType),
+    MavlinkRaw(MavMessage),
 }
 
 

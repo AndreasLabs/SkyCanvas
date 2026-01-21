@@ -1,5 +1,5 @@
 
 
-pub struct MavTaskTrait{
+pub trait MavTaskTrait{
     
 }
