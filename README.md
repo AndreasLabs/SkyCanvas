@@ -134,11 +134,16 @@ uv sync
   - [x] Basic project setup
   - [x] Ardupilot connection w/ POC state reading / Status message logger
   - [x] MVP Rerun logger w/ Status Messages (Text Log)
-  - [ ] Port over all UAV state reading
-    - [ ] Local Position NED w/ History
-    - [ ] Lattitude, Longitude, Altitude w/ History
-    - [ ] Health
+  - [x] Port over all UAV state reading
+    - [x] Local Position NED w/ History
+    - [x] Lattitude, Longitude, Altitude w/ History
+    - [x] Health
+  - [ ] Port LED Software Class
   - [ ] Port over all Rerun Logging
+    - [x] GPS Map View (LLA)
+    - [ ] 3D NED Live View
+    - [ ] 3D Historical / Exposure View
+    - [ ] 2D Historical / Exposure View
   - [ ] Port over pattern API w/ generators
   - [ ] Port over waypoint system
   - [ ] Port over mission system

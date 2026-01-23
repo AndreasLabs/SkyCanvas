@@ -32,6 +32,8 @@ impl MavTaskTrait for MavTaskLla {
             altitude: (res_global_position_int.alt as f32) / 1000.0,
         };
         state.record_lla(lla);
+        let log_rerun = context.log_rerun.lock().unwrap();
+        log_rerun.log_lla("mavlink/position/lla", &state.lla_current)?;
 
         debug!("MavTaskLla // Received global position int: {:?}", res_global_position_int);
         Ok(())
