@@ -134,7 +134,10 @@ uv sync
   - [x] Basic project setup
   - [x] Ardupilot connection w/ POC state reading / Status message logger
   - [x] MVP Rerun logger w/ Status Messages (Text Log)
-  - [ ] Port over all UAV state reading 
+  - [ ] Port over all UAV state reading
+    - [ ] Local Position NED w/ History
+    - [ ] Lattitude, Longitude, Altitude w/ History
+    - [ ] Health
   - [ ] Port over all Rerun Logging
   - [ ] Port over pattern API w/ generators
   - [ ] Port over waypoint system
@@ -148,3 +151,7 @@ uv sync
   - [ ] Multi-waypoint test
   - [ ] Square pattern test
   - [ ] Smiley pattern test
+
+### Bonus:
+  - [ ] Track System / Sensor Status from MavLink 
+    -  https://github.com/victoryforphil/project-firefly/blob/main/src_flight/whisper/src/mavlink/processors/proc_sys_status.rs

@@ -12,7 +12,7 @@ use mavlink::ardupilotmega::MavMessage;
 use log::info;
 use std::sync::mpsc;
 
-use crate::{common::context::QuadAppContext, link::{mav_queues::MavQueues, tasks::{MavTaskTrait, mavtask_print::MavTaskPrint, mavtask_status_text::MavTaskStatusText}}};
+use crate::{common::context::QuadAppContext, link::{mav_queues::MavQueues, tasks::{MavTaskTrait, mavtask_health::MavTaskHealth, mavtask_lla::MavTaskLla, mavtask_local_ned::MavTaskLocalNed, mavtask_print::MavTaskPrint, mavtask_status_text::MavTaskStatusText}}};
 pub struct QuadLink{
 
 
@@ -45,7 +45,10 @@ impl QuadLink{
         let context = context.clone();
         let tasks_handle = std::thread::spawn(move || {
             let mut tasks = MavTasks::new(queues.clone(), context.clone());
-           // tasks.add_task(Box::new(MavTaskPrint::new()));
+            //tasks.add_task(Box::new(MavTaskPrint::new()));
+            tasks.add_task(Box::new(MavTaskHealth::new()));
+            tasks.add_task(Box::new(MavTaskLla::new()));
+            tasks.add_task(Box::new(MavTaskLocalNed::new()));
             tasks.add_task(Box::new(MavTaskStatusText::new()));
             tasks.start()
     });

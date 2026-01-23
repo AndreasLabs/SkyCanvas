@@ -7,3 +7,6 @@ pub trait MavTaskTrait{
 
 pub mod mavtask_print;
 pub mod mavtask_status_text;
+pub mod mavtask_local_ned;
+pub mod mavtask_lla;
+pub mod mavtask_health;
