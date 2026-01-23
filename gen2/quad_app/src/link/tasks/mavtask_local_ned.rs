@@ -32,7 +32,8 @@ impl MavTaskTrait for MavTaskLocalNed {
             res_local_position.z,
         );
         state.record_ned(ned_pos);
-
+        let log_rerun = context.log_rerun.lock().unwrap();
+        log_rerun.log_ned("mavlink/position/ned", &state.ned_current)?;
         debug!("MavTaskLocalNed // Received local position NED: {:?}", res_local_position);
         Ok(())
     }

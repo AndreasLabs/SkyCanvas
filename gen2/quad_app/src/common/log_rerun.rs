@@ -1,4 +1,4 @@
-use crate::common::state::LLA;
+use crate::common::state::{LLA, NED};
 
 pub struct LogRerun {
     pub name: String,
@@ -26,6 +26,16 @@ impl LogRerun {
         self.rec.log(
             topic.to_string(),
             &rerun::GeoPoints::from_lat_lon(&[(lla.latitude as f64, lla.longitude as f64)])
+                .with_radii([rerun::Radius::new_ui_points(5.0)])
+                .with_colors([rerun::Color::from_rgb(255, 0, 0)]),
+        )?;
+        Ok(())
+    }
+
+    pub fn log_ned(&self, topic: &str, ned: &NED) -> Result<(), anyhow::Error> {
+        self.rec.log(
+            topic.to_string(),
+            &rerun::Points3D::new(&[[ned.north as f64, ned.east as f64, -ned.down as f64]])
                 .with_radii([rerun::Radius::new_ui_points(5.0)])
                 .with_colors([rerun::Color::from_rgb(255, 0, 0)]),
         )?;
