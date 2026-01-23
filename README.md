@@ -139,6 +139,9 @@ uv sync
     - [x] Lattitude, Longitude, Altitude w/ History
     - [x] Health
   - [ ] Port LED Software Class
+    - [x] Basic class and creation
+    - [ ] LED control commands
+    - [ ] LED viz
   - [ ] Port over all Rerun Logging
     - [x] GPS Map View (LLA)
     - [x] 3D NED Live View
@@ -160,3 +163,5 @@ uv sync
 ### Bonus:
   - [ ] Track System / Sensor Status from MavLink 
     -  https://github.com/victoryforphil/project-firefly/blob/main/src_flight/whisper/src/mavlink/processors/proc_sys_status.rs
+ -  [ ] Add App logging to Rerun
+ -  [ ] UAV Mesh to Viz

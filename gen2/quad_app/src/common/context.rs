@@ -8,6 +8,7 @@ pub struct QuadAppContext {
     pub state: Arc<RwLock<QuadAppState>>,
     pub commands: Arc<Mutex<Vec<QuadAppCommand>>>,
     pub log_rerun: Arc<Mutex<LogRerun>>,
+
 }
 
 impl QuadAppContext {
