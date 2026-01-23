@@ -74,3 +74,6 @@ depth_capture/mobileclip_blt.ts
 
 target/
 */target/
+
+# Rust
+Cargo.lock
