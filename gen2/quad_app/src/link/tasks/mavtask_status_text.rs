@@ -31,6 +31,8 @@ impl MavTaskTrait for MavTaskStatusText{
                 // Trim \0's
                 let msg = msg.trim_matches('\0').to_string();
                 info!("Task // Status Text // {:?} -> {:?}", serverity, msg);
+                let log_rerun = context.log_rerun.lock().unwrap();
+                log_rerun.log_status_text("mavlink/status_text", &msg)?;
                 Ok(())
             }
             _ => {

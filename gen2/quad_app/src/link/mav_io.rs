@@ -1,8 +1,8 @@
 use crate::link::{mav_config::MavConfig, mav_queues::MavQueues};
-use anyhow::Error;
+
 
 use log::{debug, error, info, trace};
-use mavlink::{MavConnection, ardupilotmega::MavMessage};
+use mavlink::{ardupilotmega::MavMessage};
 use std::{
     sync::{
         Arc, Mutex, atomic::{AtomicBool, Ordering}, mpsc::{self, Receiver, Sender, channel}
@@ -11,17 +11,7 @@ use std::{
     time::Duration,
 };
 
-use crate::link::mav_config::MavlinkConnectionType;
-
 type MavlinkMessageType = MavMessage;
-
-#[derive(thiserror::Error, Debug)]
-pub enum MavIOError {
-    #[error("Generic error: {0}")]
-    GenericError(#[from] anyhow::Error),
-    #[error("Channel send error: {0}")]
-    ChannelSendError(#[from] mpsc::SendError<MavlinkMessageType>),
-}
 
 
 pub struct MavIO{
@@ -49,7 +39,7 @@ impl MavIO{
         info!("SkyCanvas // MavIO // Starting IO Tick loop");
         while self.enabled.load(Ordering::Relaxed) {
 
-            // TODO: First on each tick - send out any commands that are sent to IO by the quad app
+            //  First on each tick - send out any commands that are sent to IO by the quad app
             self.tick_send()?;
             // 2. Recv any messages from the MAVLink connection
             self.tick_recv()?;
@@ -102,22 +92,16 @@ impl MavIO{
         }
     }
   
-    fn build_request_stream(&self) -> mavlink::ardupilotmega::MavMessage {
-        #[allow(deprecated)]
-        mavlink::ardupilotmega::MavMessage::REQUEST_DATA_STREAM(
-            mavlink::ardupilotmega::REQUEST_DATA_STREAM_DATA {
-                target_system: 0,
-                target_component: 0,
-                req_stream_id: 0,
-                req_message_rate: self.config.telemetry_rate_hz as u16,
-                start_stop: 1,
-            },
-        )
-    }
+
     fn send_request_stream(&self) -> Result<(), anyhow::Error> {
-      
-        let mav_con = self.mav_con.as_ref().unwrap();
-        let packet = self.build_request_stream();
+        #[allow(deprecated)]
+        let packet = MavMessage::REQUEST_DATA_STREAM(mavlink::ardupilotmega::REQUEST_DATA_STREAM_DATA {
+            target_system: 0,
+            target_component: 0,
+            req_stream_id: 0,
+            req_message_rate: self.config.telemetry_rate_hz as u16,
+            start_stop: 1,
+        });
         info!("SkyCanvas // MavIO // Sending request stream: {:#?}", packet);
         self.queues.send(packet)?;
         Ok(())

@@ -16,6 +16,7 @@ fn main() -> Result<(), anyhow::Error> {
 fn run() -> Result<(), anyhow::Error> {
     let config = MavConfig::default();
     let mut quad_link = QuadLink::new(config.clone());
+    
     match quad_link.start() {
         Ok(_) => {
             log::info!("SkyCanvas // Main // QuadLink started successfully");

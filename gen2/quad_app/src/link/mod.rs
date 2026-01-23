@@ -32,7 +32,7 @@ impl QuadLink{
 
     pub fn start(&mut self) -> Result<(), anyhow::Error> {
         info!("SkyCanvas // QuadLink // Starting");
-        let context = QuadAppContext::new();
+        let context = QuadAppContext::new("quad_app".to_string());
         let config = self.config.clone();
         let queues = self.queues.clone();
         let context = context.clone();
@@ -41,11 +41,10 @@ impl QuadLink{
             io.start()
         });
 
-        let config = self.config.clone();
         let queues = self.queues.clone();
         let context = context.clone();
         let tasks_handle = std::thread::spawn(move || {
-            let mut tasks = MavTasks::new(config.clone(), queues.clone(), context.clone());
+            let mut tasks = MavTasks::new(queues.clone(), context.clone());
            // tasks.add_task(Box::new(MavTaskPrint::new()));
             tasks.add_task(Box::new(MavTaskStatusText::new()));
             tasks.start()

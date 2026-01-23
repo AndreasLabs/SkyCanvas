@@ -11,7 +11,6 @@ use crate::link::tasks::MavTaskTrait;
 use crate::common::context::QuadAppContext;
 
 pub struct MavTasks {
-    config: MavConfig,
     queues: MavQueues,
     enabled: AtomicBool,
     tasks: Vec<Box<dyn MavTaskTrait>>,
@@ -19,8 +18,8 @@ pub struct MavTasks {
 }
 
 impl MavTasks{
-    pub fn new(config: MavConfig, queues: MavQueues, context: QuadAppContext) -> Self {
-        Self { config, queues, enabled: AtomicBool::new(false), tasks: Vec::new(), context }
+    pub fn new(queues: MavQueues, context: QuadAppContext) -> Self {
+        Self { queues, enabled: AtomicBool::new(false), tasks: Vec::new(), context }
     }
 
     pub fn add_task(&mut self, task: Box<dyn MavTaskTrait>) {
@@ -32,7 +31,7 @@ impl MavTasks{
         info!("SkyCanvas // MavTasks // Starting");
         while self.enabled.load(Ordering::Relaxed) {
             self.tick()?;
-            thread::sleep(Duration::from_millis(5));
+            thread::sleep(Duration::from_millis(2));
         }
         Ok(())
     }
@@ -44,7 +43,7 @@ impl MavTasks{
 
         // First read for for incoming messages
         let messages = self.queues.recv()?;
-        for message in messages {
+        if let Some(message) = messages {
             self.process_message(message)?;
         }
 

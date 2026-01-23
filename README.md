@@ -131,9 +131,9 @@ uv sync
   - [ ] Develop ESP32 based LED Controller that uses WiFi or 900mhz link
   - [ ] Develop Connection to LED Controller w/ hook up to software LED component
 - [ ] Rust Re-write
-  - [ ] Basic project setup
-  - [ ] Ardupilot connection w/ POC state reading / Status message logger
-  - [ ] MVP Rerun logger w/ Status Messages (Text Log)
+  - [x] Basic project setup
+  - [x] Ardupilot connection w/ POC state reading / Status message logger
+  - [x] MVP Rerun logger w/ Status Messages (Text Log)
   - [ ] Port over all UAV state reading 
   - [ ] Port over all Rerun Logging
   - [ ] Port over pattern API w/ generators
