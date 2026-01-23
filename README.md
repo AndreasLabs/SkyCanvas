@@ -141,7 +141,7 @@ uv sync
   - [ ] Port LED Software Class
   - [ ] Port over all Rerun Logging
     - [x] GPS Map View (LLA)
-    - [ ] 3D NED Live View
+    - [x] 3D NED Live View
     - [ ] 3D Historical / Exposure View
     - [ ] 2D Historical / Exposure View
   - [ ] Port over pattern API w/ generators
