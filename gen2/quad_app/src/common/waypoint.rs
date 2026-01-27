@@ -1,3 +1,5 @@
+use crate::common::state::NED;
+
 #[derive(Default, Debug, Clone)]
 pub struct Waypoint{
     pub ned: NED,

@@ -30,12 +30,10 @@ impl QuadLink{
         }
     }
 
-    pub fn start(&mut self) -> Result<(), anyhow::Error> {
+    pub fn start(&mut self, context: &QuadAppContext) -> Result<(), anyhow::Error> {
         info!("SkyCanvas // QuadLink // Starting");
-        let context = QuadAppContext::new("quad_app".to_string());
         let config = self.config.clone();
         let queues = self.queues.clone();
-        let context = context.clone();
         let io_handle = std::thread::spawn(move || {
             let mut io = MavIO::new(config.clone(), queues.clone());
             io.start()
@@ -53,8 +51,8 @@ impl QuadLink{
             tasks.start()
     });
 
-    io_handle.join().map_err(|e| anyhow::anyhow!("IO thread panicked: {:?}", e))??;
-    tasks_handle.join().map_err(|e| anyhow::anyhow!("Tasks thread panicked: {:?}", e))??;
+  //  io_handle.join().map_err(|e| anyhow::anyhow!("IO thread panicked: {:?}", e))??;
+    //tasks_handle.join().map_err(|e| anyhow::anyhow!("Tasks thread panicked: {:?}", e))??;
     Ok(())
   }
 }

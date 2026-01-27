@@ -3,6 +3,8 @@ use mavlink::ardupilotmega::MavMessage;
 
 pub enum QuadAppCommandType{
     MavlinkRaw(MavMessage),
+    QuadGuidedArm(),
+    QuadTakeoff(),
 }
 
 
