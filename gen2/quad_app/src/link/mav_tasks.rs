@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
 use log::info;
 
+use crate::common::commands::QuadAppCommand;
 use crate::link::mav_queues::MavlinkMessageType;
 use crate::link::{mav_config::MavConfig, mav_queues::MavQueues};
 use crate::link::tasks::MavTaskTrait;
@@ -46,8 +48,14 @@ impl MavTasks{
         if let Some(message) = messages {
             self.process_message(message)?;
         }
-
-        
+        let context = self.context.clone();
+        let mut queues = self.queues.clone();
+        // Then read for any commands from the app
+        let commands = &mut self.context.commands.lock().unwrap();
+        while let Some(command) = commands.pop_front() {
+            let command_send = command.clone();
+            self.process_command(&context, &mut queues, &command_send)?;
+        }
         Ok(())
     }
 
@@ -55,6 +63,14 @@ impl MavTasks{
         // Tick each task w/ this message
         for task in self.tasks.iter() {
             task.handle_mavlink_message(&self.context, message.clone())?;
+        }
+        Ok(())
+    }
+
+    fn process_command(&self, context: &QuadAppContext, queues: &mut MavQueues, command: &QuadAppCommand) -> Result<(), anyhow::Error> {
+        // Tick each task w/ this command
+        for task in self.tasks.iter() {
+            task.handle_app_command(context, queues, command)?;
         }
         Ok(())
     }

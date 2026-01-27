@@ -13,7 +13,7 @@ use mav_mode::ArduMode;
 use log::info;
 use std::sync::mpsc;
 
-use crate::{common::context::QuadAppContext, link::{mav_queues::MavQueues, tasks::{MavTaskTrait, mavtask_health::MavTaskHealth, mavtask_lla::MavTaskLla, mavtask_local_ned::MavTaskLocalNed, mavtask_print::MavTaskPrint, mavtask_status_text::MavTaskStatusText}}};
+use crate::{common::context::QuadAppContext, link::{mav_queues::MavQueues, tasks::{MavTaskTrait, mavtask_health::MavTaskHealth, mavtask_lla::MavTaskLla, mavtask_local_ned::MavTaskLocalNed, mavtask_print::MavTaskPrint, mavtask_send::MavTaskSend, mavtask_status_text::MavTaskStatusText}}};
 pub struct QuadLink{
 
 
@@ -49,6 +49,7 @@ impl QuadLink{
             tasks.add_task(Box::new(MavTaskLla::new()));
             tasks.add_task(Box::new(MavTaskLocalNed::new()));
             tasks.add_task(Box::new(MavTaskStatusText::new()));
+            tasks.add_task(Box::new(MavTaskSend::new()));
             tasks.start()
     });
 

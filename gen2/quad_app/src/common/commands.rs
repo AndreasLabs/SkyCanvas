@@ -1,6 +1,6 @@
 use crate::link::mav_queues::MavQueues;
 use mavlink::ardupilotmega::MavMessage;
-
+#[derive(Clone, Debug)]
 pub enum QuadAppCommandType{
     MavlinkRaw(MavMessage),
     QuadGuidedArm(),
@@ -8,8 +8,9 @@ pub enum QuadAppCommandType{
 }
 
 
+#[derive(Clone, Debug)]
 pub struct QuadAppCommand{
-    cmd_type: QuadAppCommandType,
+    pub cmd_type: QuadAppCommandType,
 }
 
 impl QuadAppCommand{
