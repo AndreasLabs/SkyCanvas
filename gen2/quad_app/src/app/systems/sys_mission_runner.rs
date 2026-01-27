@@ -11,8 +11,12 @@ impl SysMissionRunner{
 }
 
 impl AppSystemTrait for SysMissionRunner{
-    fn tick(&mut self, context: &QuadAppContext) -> Result<(), anyhow::Error> {
+    fn start(&mut self, context: &QuadAppContext) -> Result<(), anyhow::Error> {
         self.mission.run(context)?;
+        Ok(())
+    }
+    fn tick(&mut self, context: &QuadAppContext) -> Result<(), anyhow::Error> {
+       // self.mission.run(context)?;
         Ok(())
     }
 }

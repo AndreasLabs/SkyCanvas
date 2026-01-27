@@ -46,6 +46,10 @@ impl WaypointSystem{
 }
 
 impl AppSystemTrait for WaypointSystem{
+    fn start(&mut self, context: &crate::common::context::QuadAppContext) -> Result<(), anyhow::Error> {
+        self.is_enabled = true;
+        Ok(())
+    }
     fn tick(&mut self, context: &crate::common::context::QuadAppContext) -> Result<(), anyhow::Error> {
         self.tick_state_machine(context)?;
         Ok(())

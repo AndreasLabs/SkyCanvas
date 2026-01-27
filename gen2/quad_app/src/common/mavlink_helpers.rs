@@ -17,6 +17,7 @@ pub fn mavlink_msg_type_str(msg: &MavMessage) -> String {
     message_type
 }
 
+
 #[derive(Debug, Clone, Default)]
 pub struct EkfStatus {
     pub attitude: bool,

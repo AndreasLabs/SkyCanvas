@@ -3,11 +3,12 @@ pub mod mav_tasks;
 pub mod tasks;
 pub mod mav_queues;
 pub mod mav_config;
+pub mod mav_mode;
 
 use mav_io::MavIO;
 use mav_tasks::MavTasks;
 use mav_config::MavConfig;
-use mavlink::ardupilotmega::MavMessage;
+use mav_mode::ArduMode;
 
 use log::info;
 use std::sync::mpsc;
@@ -51,8 +52,8 @@ impl QuadLink{
             tasks.start()
     });
 
-  //  io_handle.join().map_err(|e| anyhow::anyhow!("IO thread panicked: {:?}", e))??;
-    //tasks_handle.join().map_err(|e| anyhow::anyhow!("Tasks thread panicked: {:?}", e))??;
+    io_handle.join().map_err(|e| anyhow::anyhow!("IO thread panicked: {:?}", e))??;
+    tasks_handle.join().map_err(|e| anyhow::anyhow!("Tasks thread panicked: {:?}", e))??;
     Ok(())
   }
 }

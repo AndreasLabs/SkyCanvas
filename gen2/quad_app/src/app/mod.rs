@@ -28,6 +28,9 @@ impl QuadApp{
 
                 let mut waypoint_system = WaypointSystem::new();
                 let mut mission_runner = SysMissionRunner::new();
+
+                waypoint_system.start(&context).unwrap();
+                mission_runner.start(&context).unwrap();
             loop {
                 let result = waypoint_system.tick(&context);
                 let result = mission_runner.tick(&context);
