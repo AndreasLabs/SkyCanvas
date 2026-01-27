@@ -149,7 +149,7 @@ uv sync
     - [ ] 2D Historical / Exposure View
   - [ ] Port over pattern API w/ generators
   - [ ] Port over waypoint system
-  - [ ] Port over mission system
+  - [x] Port over mission system
   - [ ] Docker compose SIL setup / tear down
 - [ ] Flight Test Campaign
   - [ ] Arm/Disarm Test - Arm the quad - set LEDs - disarm
