@@ -116,7 +116,7 @@ uv sync
 - [x] Track color in waypoints
 - [ ] Add Low Poly Mesh desert floor / grid
 - [x] Add Solid paths (waypoints with solid color)
-- [ ] Add Wait for takeoff instead of time based
+- [x] Add Wait for takeoff instead of time based
 - [ ] Increase waypoint accuracy (hold point improvement)
 - [ ] Auto stop after landing
 - [ ] SVG Importer
@@ -151,6 +151,10 @@ uv sync
   - [ ] Port over waypoint system
   - [x] Port over mission system
   - [ ] Docker compose SIL setup / tear down
+- [ ] Clean Up Pass #1
+  - [ ] Remove Seperate tasks - instead make direct call backs
+  - [ ] Send outgoing mavlink in the main task loop
+  - [ ] Remove App layer?
 - [ ] Flight Test Campaign
   - [ ] Arm/Disarm Test - Arm the quad - set LEDs - disarm
   - [ ] Motor Spin up test
